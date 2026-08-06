@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Spotter · Fuel Route Planner{% endblock %}
+{% block body_class %}planner{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+{% endblock %}
+
+{% block content %}
+<div class="shell" id="app" data-tank-range-miles="{{ tank_range_miles }}" data-mpg="{{ mpg }}" data-tank-gallons="{{ tank_gallons }}">
+  <aside class="panel">
+    <div class="phead">
+      <h1>Fuel Route Planner</h1>
+      <p>Lowest-cost fuel stops for a {{ tank_range_miles }}&nbsp;mi range at {{ mpg }}&nbsp;mpg</p>
+    </div>
+
+    <form class="form" id="planForm">
+      <div>
+        <label class="lbl" for="start">Start</label>
+        <div class="field">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2ec4c9" stroke-width="2"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/></svg>
+          <input id="start" name="start" value="New York, NY" autocomplete="off" required>
+        </div>
+      </div>
+      <div>
+        <label class="lbl" for="finish">Destination</label>
+        <div class="field">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2ec4c9" stroke-width="2"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+          <input id="finish" name="finish" value="Los Angeles, CA" autocomplete="off" required>
+        </div>
+      </div>
+      <button class="plan" id="planBtn" type="submit">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.3L19 9l-5.1 1.7L12 16l-1.9-5.3L5 9l5.1-1.7z"/></svg>
+        <span id="planTxt">Plan route</span>
+      </button>
+      <div class="veh">
+        <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#63798b" stroke-width="2"><rect x="1" y="6" width="14" height="11" rx="1.5"/><path d="M15 9h4l4 4v4h-8z"/><circle cx="6" cy="18.5" r="2"/><circle cx="18" cy="18.5" r="2"/></svg> {{ tank_range_miles }} mi range</span>
+        <span>{{ mpg }} mpg</span>
+        <span>{{ tank_gallons }} gal tank</span>
+      </div>
+    </form>
+
+    <div class="scrollarea">
+
+      <!-- idle: nothing planned yet -->
+      <div class="msg" id="stateIdle">
+        <div class="msgicon ok">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3ddc97" stroke-width="1.9" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <h3>Ready to plan a route</h3>
+        <p>Enter a start and destination, then click <b>Plan route</b> to get the lowest-cost fuel stops along the way.</p>
+      </div>
+
+      <!-- loading skeleton -->
+      <div class="hidden" id="stateLoading" style="padding-top:0">
+        <div class="summary" style="margin:0 0 18px">
+          <div><small>Total distance</small><div class="sk" style="height:21px;width:80%"></div></div>
+          <div><small>Total fuel cost</small><div class="sk" style="height:21px;width:70%"></div></div>
+          <div><small>Fuel stops</small><div class="sk" style="height:21px;width:40%"></div></div>
+          <div><small>Avg price/gal</small><div class="sk" style="height:21px;width:65%"></div></div>
+        </div>
+        <div class="listhead" style="padding:0 2px 10px"><h2>Fuel stops</h2><em>Solving…</em></div>
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <div class="skrow"><div class="sk" style="width:26px;height:26px;border-radius:50%"></div><div style="flex:1"><div class="sk" style="height:12px;width:62%"></div><div class="sk" style="height:10px;width:40%;margin-top:7px"></div></div><div class="sk" style="height:14px;width:52px"></div></div>
+          <div class="skrow"><div class="sk" style="width:26px;height:26px;border-radius:50%"></div><div style="flex:1"><div class="sk" style="height:12px;width:48%"></div><div class="sk" style="height:10px;width:55%;margin-top:7px"></div></div><div class="sk" style="height:14px;width:52px"></div></div>
+          <div class="skrow"><div class="sk" style="width:26px;height:26px;border-radius:50%"></div><div style="flex:1"><div class="sk" style="height:12px;width:70%"></div><div class="sk" style="height:10px;width:36%;margin-top:7px"></div></div><div class="sk" style="height:14px;width:52px"></div></div>
+        </div>
+      </div>
+
+      <!-- error -->
+      <div class="msg hidden" id="stateError">
+        <div class="msgicon warn" id="errIconWrap">
+          <svg id="errIcon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f0b755" stroke-width="1.9" stroke-linecap="round"><path d="M12 3l9.5 16.5h-19z"/><path d="M12 10v4M12 17.2v.1"/></svg>
+        </div>
+        <h3 id="errTitle">Couldn't plan that route</h3>
+        <p id="errBody"></p>
+        <div class="why hidden" id="errWhy"></div>
+      </div>
+
+      <!-- result -->
+      <div class="hidden" id="stateResult">
+        <div class="summary">
+          <div><small>Total distance</small><strong id="sumDistance">—</strong></div>
+          <div><small>Total fuel cost</small><strong class="t" id="sumCost">—</strong></div>
+          <div><small>Fuel stops</small><strong id="sumStops">—</strong></div>
+          <div><small>Avg price/gal</small><strong class="g" id="sumAvg">—</strong></div>
+        </div>
+        <div class="listhead"><h2>Fuel stops</h2><em id="listMeta"></em></div>
+        <div class="list" id="stopList"></div>
+      </div>
+
+    </div>
+  </aside>
+
+  <div class="mapwrap">
+    <div id="map"></div>
+    <div class="mapbadge hidden" id="mapBadge">
+      <span id="badgeRoute"></span>
+      <span id="badgeStats"></span>
+    </div>
+    <div class="legend hidden" id="legend">
+      <div><span style="width:22px;height:4px;border-radius:3px;background:#22415c;border:1px solid #fff"></span> Planned route</div>
+      <div><span style="width:12px;height:12px;border-radius:50%;background:#17b5bb;border:2px solid #eafcfd"></span> Fuel stop</div>
+      <div><span style="width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid #f0725c"></span> Selected stop</div>
+    </div>
+    <div class="overlay" id="mapOverlay">
+      <div class="spin"></div>
+      <p>Optimizing fuel stops…</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_body %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script src="{% static 'routing/js/route_planner.js' %}"></script>
+{% endblock %}

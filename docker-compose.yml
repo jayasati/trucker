@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: trucker
+      POSTGRES_PASSWORD: trucker
+      POSTGRES_DB: trucker
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # Host port 5433 to avoid clashing with a native Postgres install on 5432.
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trucker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DATABASE_URL: postgres://trucker:trucker@db:5432/trucker
+      SECRET_KEY: dev-secret-key
+      DEBUG: "True"
+      ALLOWED_HOSTS: "*"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

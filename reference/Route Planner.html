@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spotter · Fuel Route Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Poppins:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<style>
+:root{
+  --bg:#060f18; --nav:#0a1521; --panel:#0d1926; --sunk:#0b1724;
+  --line:#17293a; --line2:#132030; --stroke:#1c3145;
+  --teal:#2ec4c9; --teal-br:#3ddade; --green:#3ddc97; --amber:#f0b755; --red:#f0725c; --blue:#4a9fd8;
+  --txt:#e8f0f6; --txt2:#c9d9e5; --mut:#8299ac; --mut2:#7d94a8; --mut3:#63798b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--txt);font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+a{color:var(--teal-br);text-decoration:none}
+a:hover{color:#7cebee}
+button{font-family:inherit}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#1d3346;border-radius:8px}
+
+/* ---- chrome ---- */
+.nav{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 28px;height:68px;background:var(--nav);border-bottom:1px solid #16283a;flex:none;min-width:0}
+@media (max-width:1360px){.states{display:none}}
+@media (max-width:1120px){.tabs a:nth-child(n+4){display:none}}
+.brand{display:flex;align-items:center;gap:11px}
+.brand span{font-family:Poppins,sans-serif;font-weight:600;font-size:21px;letter-spacing:-.01em;color:#fff}
+.tabs{display:flex;align-items:center;gap:4px;font-size:14.5px;font-weight:600}
+.tabs a{padding:23px 16px 21px;color:var(--mut);border-bottom:2px solid transparent}
+.tabs a:hover{color:var(--txt)}
+.tabs a.on{color:#fff;border-bottom-color:var(--teal)}
+.navr{display:flex;align-items:center;gap:16px}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,#2ec4c9,#1a6f9e);display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;color:#04141a}
+
+/* mockup-only state switcher */
+.states{display:flex;align-items:center;gap:6px;padding:4px;background:#0f1e2d;border:1px dashed #2a4459;border-radius:10px}
+.states b{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#546b7d;padding:0 6px}
+.states button{padding:6px 11px;border:none;border-radius:7px;background:transparent;color:var(--mut);font-size:12px;font-weight:700;cursor:pointer}
+.states button:hover{color:var(--txt)}
+.states button.on{background:#17334a;color:#fff}
+
+/* ---- shell ---- */
+.shell{display:grid;grid-template-columns:404px minmax(0,1fr);gap:16px;padding:16px;height:calc(100vh - 68px)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.phead{padding:22px 22px 18px;flex:none}
+.phead h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.02em;color:#fff}
+.phead p{margin:6px 0 0;font-size:13px;color:var(--mut2)}
+.form{padding:0 22px;display:flex;flex-direction:column;gap:12px;flex:none}
+.lbl{font-size:12px;font-weight:700;color:var(--mut2);margin-bottom:6px;display:block}
+.field{display:flex;align-items:center;gap:10px;background:#0b1724;border:1px solid var(--stroke);border-radius:10px;padding:0 12px;height:44px}
+.field:focus-within{border-color:var(--teal);box-shadow:0 0 0 3px rgba(46,196,201,.12)}
+.field input{flex:1;min-width:0;background:none;border:none;outline:none;color:var(--txt);font-family:inherit;font-size:14px;font-weight:600}
+.field input::placeholder{color:#4d647a;font-weight:500}
+.field svg{flex:none}
+.plan{margin-top:4px;height:46px;display:flex;align-items:center;justify-content:center;gap:9px;border:none;border-radius:10px;background:var(--teal);color:#04202a;font-size:14.5px;font-weight:800;cursor:pointer}
+.plan:hover{background:var(--teal-br)}
+.plan[disabled]{background:#1b4249;color:#6d97a0;cursor:progress}
+.veh{display:flex;align-items:center;justify-content:center;gap:14px;font-size:11.5px;font-weight:600;color:var(--mut3);padding:2px 0 0}
+.veh span{display:flex;align-items:center;gap:5px}
+
+.scrollarea{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;padding:18px 22px 22px}
+.scrollarea>*{flex:none}
+.summary{margin:0;border:1px solid var(--line);border-radius:12px;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);overflow:hidden;flex:none}
+.summary div{background:var(--sunk);padding:13px 15px;display:flex;flex-direction:column;gap:4px}
+.summary small{font-size:11.5px;font-weight:700;color:var(--mut2)}
+.summary strong{font-size:21px;font-weight:800;letter-spacing:-.02em;color:#fff}
+.summary strong.t{color:var(--teal)}
+.summary strong.g{color:var(--green)}
+
+.listhead{display:flex;align-items:baseline;justify-content:space-between;padding:18px 2px 10px;flex:none}
+.listhead h2{margin:0;font-size:14px;font-weight:800;color:#fff}
+.listhead em{font-style:normal;font-size:11.5px;font-weight:700;color:var(--mut3)}
+.list{flex:none;min-height:0;padding:0;display:flex;flex-direction:column;gap:9px}
+
+.stop{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;padding:13px 14px;background:var(--sunk);border:1px solid var(--line);border-radius:12px;cursor:pointer;text-align:left;color:inherit}
+.stop:hover{border-color:#27506b;background:#0e1f2f}
+.stop.on{border-color:var(--teal);box-shadow:0 0 0 3px rgba(46,196,201,.1)}
+.pin{width:26px;height:26px;border-radius:50%;background:var(--teal);color:#04202a;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
+.pin.o{background:#1c3145;color:var(--teal-br);border:1px solid #2a5a68}
+.sname{font-size:13.5px;font-weight:700;color:#fff;line-height:1.25}
+.sloc{font-size:12px;color:var(--mut);margin-top:3px}
+.sprice{font-size:12px;font-weight:700;color:var(--teal);margin-top:5px}
+.sright{text-align:right;display:flex;flex-direction:column;gap:4px;white-space:nowrap}
+.sgal{font-size:12px;font-weight:600;color:var(--txt2)}
+.scost{font-size:13.5px;font-weight:800;color:#fff}
+.seta{font-size:11px;font-weight:600;color:var(--mut3)}
+.badge{display:inline-block;margin-top:6px;padding:2px 7px;border-radius:5px;background:#12303a;border:1px solid #1f5761;color:var(--teal-br);font-size:10px;font-weight:800;letter-spacing:.02em}
+
+/* skeletons */
+.sk{background:linear-gradient(90deg,#122132 25%,#182c40 50%,#122132 75%);background-size:220% 100%;animation:sh 1.3s linear infinite;border-radius:7px}
+@keyframes sh{from{background-position:220% 0}to{background-position:-20% 0}}
+.skrow{display:flex;gap:12px;align-items:center;padding:13px 14px;background:var(--sunk);border:1px solid var(--line);border-radius:12px}
+
+/* message states */
+.msg{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px 34px;gap:14px}
+.msgicon{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center}
+.msg h3{margin:0;font-size:17px;font-weight:800;color:#fff}
+.msg p{margin:0;font-size:13px;line-height:1.55;color:var(--mut)}
+.msg>*{flex:none}
+.msg .why{width:100%;text-align:left;background:var(--sunk);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:9px;margin-top:2px}
+.msg .why b{font-size:11.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--mut2)}
+.msg .why span{font-size:12.5px;color:var(--txt2);display:flex;justify-content:space-between;gap:10px}
+.msg .why span i{font-style:normal;color:var(--mut3)}
+.ghost{padding:11px 18px;border-radius:9px;border:1px solid var(--stroke);background:#0f1e2d;color:var(--txt2);font-size:13px;font-weight:700;cursor:pointer}
+.ghost:hover{background:#132436;color:#fff}
+.solid{padding:11px 18px;border-radius:9px;border:none;background:var(--teal);color:#04202a;font-size:13px;font-weight:800;cursor:pointer}
+.solid:hover{background:var(--teal-br)}
+.msgbtns{display:flex;gap:9px;margin-top:4px}
+
+/* detail */
+.back{display:flex;align-items:center;gap:7px;padding:16px 22px 10px;font-size:12.5px;font-weight:700;color:var(--mut);background:none;border:none;cursor:pointer;text-align:left}
+.back:hover{color:var(--txt)}
+.detail{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 22px 22px;display:flex;flex-direction:column;gap:14px}
+.detail>*{min-width:0;flex:none}
+.dcard{background:var(--sunk);border:1px solid var(--line);border-radius:12px;padding:16px}
+.dtitle{display:flex;gap:12px;align-items:flex-start}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.dgrid div{background:var(--sunk);padding:12px 14px;display:flex;flex-direction:column;gap:3px}
+.dgrid small{font-size:11px;font-weight:700;color:var(--mut2)}
+.dgrid strong{font-size:16px;font-weight:800;color:#fff}
+.sect{font-size:11.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--mut2);margin-bottom:10px}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:7px 0;border-bottom:1px solid var(--line2)}
+.kv:last-child{border-bottom:none}
+.kv span{color:var(--mut)}
+.kv b{color:var(--txt);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:5px 9px;border-radius:6px;background:#122131;border:1px solid var(--stroke);font-size:11.5px;font-weight:600;color:var(--txt2)}
+
+/* ---- map ---- */
+.mapwrap{position:relative;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#0b1724}
+#map{position:absolute;inset:0}
+.leaflet-container{background:#0b1724;font-family:Manrope,sans-serif}
+.leaflet-tile-pane{filter:grayscale(.9) brightness(1.02) contrast(.92)}
+.leaflet-control-zoom a{background:#0d1926;color:#c9d9e5;border-color:#1c3145}
+.leaflet-control-zoom a:hover{background:#132436;color:#fff}
+.leaflet-control-attribution{background:rgba(10,21,33,.82);color:#7d94a8;font-size:10px}
+.leaflet-control-attribution a{color:#8fb6c9}
+.mk{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#17b5bb;color:#04202a;font:800 12px Manrope,sans-serif;border:2px solid #eafcfd;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+.mk.sel{background:#fff;color:#0b3d44;border-color:var(--red);box-shadow:0 0 0 6px rgba(240,114,92,.28)}
+.mk.end{background:#0e2b38;color:#fff;border-color:#2ec4c9}
+.mlbl{font:700 12px Manrope,sans-serif;color:#0d1926;text-shadow:0 0 3px #fff,0 0 6px #fff;white-space:nowrap}
+.legend{position:absolute;right:16px;bottom:26px;z-index:600;background:rgba(10,21,33,.94);border:1px solid var(--stroke);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:9px}
+.legend div{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:600;color:var(--txt2)}
+.mapbadge{position:absolute;left:16px;top:16px;z-index:600;display:flex;gap:8px}
+.mapbadge span{background:rgba(10,21,33,.94);border:1px solid var(--stroke);border-radius:9px;padding:8px 12px;font-size:12px;font-weight:700;color:var(--txt2)}
+.mapbadge b{color:#fff}
+.overlay{position:absolute;inset:0;z-index:700;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:rgba(6,15,24,.72);backdrop-filter:blur(2px)}
+.overlay.show{display:flex}
+.spin{width:34px;height:34px;border-radius:50%;border:3px solid #1c3145;border-top-color:var(--teal);animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.overlay p{margin:0;font-size:13px;font-weight:700;color:var(--txt2)}
+.hidden{display:none !important}
+
+/* ---- comparison drawer ---- */
+.drawer{position:absolute;top:0;right:0;bottom:0;width:560px;max-width:92%;z-index:800;background:#0b1622;border-left:1px solid var(--stroke);box-shadow:-24px 0 60px rgba(0,0,0,.55);display:flex;flex-direction:column;transform:translateX(102%);transition:transform .28s cubic-bezier(.4,0,.2,1)}
+.drawer.open{transform:none}
+.dwhead{padding:20px 22px 16px;border-bottom:1px solid var(--line);flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.dwhead h3{margin:0;font-size:17px;font-weight:800;color:#fff}
+.dwhead p{margin:6px 0 0;font-size:12.5px;color:var(--mut2);line-height:1.5}
+.xbtn{flex:none;width:30px;height:30px;border-radius:8px;border:1px solid var(--stroke);background:#0f1e2d;color:var(--mut);font-size:15px;font-weight:700;cursor:pointer;line-height:1}
+.xbtn:hover{background:#132436;color:#fff}
+.dwbody{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:18px 22px 22px;display:flex;flex-direction:column;gap:14px}
+.dwbody>*{flex:none}
+.cmp{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.cmprow{display:grid;grid-template-columns:1.6fr .72fr .72fr .8fr .78fr;gap:8px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line2);background:var(--sunk)}
+.cmprow:last-child{border-bottom:none}
+.cmphead{background:#0a1420;padding:9px 14px;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--mut3)}
+.cmphead span+span,.cmprow span+span,.cmprow b+span{text-align:right}
+.cmprow.win{background:#0c2630;box-shadow:inset 3px 0 0 var(--teal)}
+.cmpname{font-size:13px;font-weight:700;color:var(--txt);line-height:1.25}
+.cmpsub{font-size:11px;color:var(--mut3);margin-top:3px}
+.cmpnum{font-size:12.5px;font-weight:700;color:var(--txt2);text-align:right}
+.cmptot{font-size:13.5px;font-weight:800;color:#fff;text-align:right}
+.cmpdelta{font-size:12px;font-weight:800;text-align:right}
+.wintag{display:inline-block;margin-top:5px;padding:2px 6px;border-radius:5px;background:#12303a;border:1px solid #1f5761;color:var(--teal-br);font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.bars{display:flex;flex-direction:column;gap:10px}
+.barrow{display:grid;grid-template-columns:132px 1fr 64px;gap:11px;align-items:center;font-size:12px}
+.bartrack{height:22px;border-radius:6px;background:#122131;overflow:hidden;display:flex}
+.barfuel{height:100%;background:var(--teal)}
+.bardet{height:100%;background:#f0b755}
+.rule{display:flex;gap:11px;padding:13px 14px;background:var(--sunk);border:1px solid var(--line);border-left:2px solid var(--teal);border-radius:10px}
+.rule p{margin:0;font-size:12.5px;line-height:1.55;color:var(--txt2)}
+.rule code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--teal-br);background:#0a1a22;padding:1px 5px;border-radius:4px}
+.cmpbtn{margin-top:2px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:10px;border:1px solid #1f5761;background:#12303a;color:var(--teal-br);font-size:13px;font-weight:800;cursor:pointer}
+.cmpbtn:hover{background:#17414f}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="brand">
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none"><path d="M22.5 6.2H12.1c-2.6 0-4.7 2.1-4.7 4.7s2.1 4.7 4.7 4.7h5.8c1.1 0 2 .9 2 2s-.9 2-2 2H7.4" stroke="#2ec4c9" stroke-width="3.4" stroke-linecap="round"/></svg>
+    <span>spotter</span>
+  </div>
+  <nav class="tabs">
+    <a href="Fuel Dashboard.dc.html">Dashboard</a>
+    <a href="#" class="on">Routes</a>
+    <a href="#">Drivers</a>
+    <a href="#">Fuel</a>
+    <a href="#">Analytics</a>
+    <a href="#">Settings</a>
+  </nav>
+  <div class="navr">
+    <div class="states" id="states">
+      <b>State</b>
+      <button data-state="default" class="on">Result</button>
+      <button data-state="loading">Loading</button>
+      <button data-state="noroute">No route</button>
+      <button data-state="range">Out of range</button>
+      <button data-state="detail">Stop detail</button>
+      <button data-state="compare">Compare</button>
+    </div>
+    <div class="avatar">DR</div>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="panel">
+    <div class="phead">
+      <h1>Fuel Route Planner</h1>
+      <p>Lowest-cost fuel stops for a 500&nbsp;mi range at 10&nbsp;mpg</p>
+    </div>
+
+    <div class="form">
+      <div>
+        <label class="lbl" for="start">Start</label>
+        <div class="field">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2ec4c9" stroke-width="2"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/></svg>
+          <input id="start" value="New York, NY">
+        </div>
+      </div>
+      <div>
+        <label class="lbl" for="dest">Destination</label>
+        <div class="field">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2ec4c9" stroke-width="2"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+          <input id="dest" value="Los Angeles, CA">
+        </div>
+      </div>
+      <button class="plan" id="planBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.3L19 9l-5.1 1.7L12 16l-1.9-5.3L5 9l5.1-1.7z"/></svg>
+        <span id="planTxt">Plan route</span>
+      </button>
+      <div class="veh">
+        <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#63798b" stroke-width="2"><rect x="1" y="6" width="14" height="11" rx="1.5"/><path d="M15 9h4l4 4v4h-8z"/><circle cx="6" cy="18.5" r="2"/><circle cx="18" cy="18.5" r="2"/></svg> 500 mi range</span>
+        <span>10 mpg</span>
+        <span>50 gal tank</span>
+      </div>
+    </div>
+
+    <div class="scrollarea">
+    <!-- RESULT -->
+    <div id="v-default" style="flex:none">
+      <div class="summary">
+        <div><small>Total distance</small><strong>2,687 mi</strong></div>
+        <div><small>Total fuel cost</small><strong class="t">$909.45</strong></div>
+        <div><small>Fuel stops</small><strong>7</strong></div>
+        <div><small>Saved vs. retail</small><strong class="g">$87.43</strong></div>
+      </div>
+      <div class="listhead"><h2>Fuel stops</h2><em>268.7 gal · avg $3.38/gal</em></div>
+    </div>
+    <div class="list" id="v-list"></div>
+
+    <!-- LOADING -->
+    <div class="list hidden" id="v-loading" style="padding-top:0">
+      <div class="summary" style="margin:0">
+        <div><small>Total distance</small><div class="sk" style="height:21px;width:80%"></div></div>
+        <div><small>Total fuel cost</small><div class="sk" style="height:21px;width:70%"></div></div>
+        <div><small>Fuel stops</small><div class="sk" style="height:21px;width:40%"></div></div>
+        <div><small>Saved vs. retail</small><div class="sk" style="height:21px;width:65%"></div></div>
+      </div>
+      <div class="listhead" style="padding:18px 2px 10px"><h2>Fuel stops</h2><em>Solving…</em></div>
+      <div class="skrow"><div class="sk" style="width:26px;height:26px;border-radius:50%"></div><div style="flex:1"><div class="sk" style="height:12px;width:62%"></div><div class="sk" style="height:10px;width:40%;margin-top:7px"></div></div><div class="sk" style="height:14px;width:52px"></div></div>
+      <div class="skrow"><div class="sk" style="width:26px;height:26px;border-radius:50%"></div><div style="flex:1"><div class="sk" style="height:12px;width:48%"></div><div class="sk" style="height:10px;width:55%;margin-top:7px"></div></div><div class="sk" style="height:14px;width:52px"></div></div>
+      <div class="skrow"><div class="sk" style="width:26px;height:26px;border-radius:50%"></div><div style="flex:1"><div class="sk" style="height:12px;width:70%"></div><div class="sk" style="height:10px;width:36%;margin-top:7px"></div></div><div class="sk" style="height:14px;width:52px"></div></div>
+      <div class="skrow"><div class="sk" style="width:26px;height:26px;border-radius:50%"></div><div style="flex:1"><div class="sk" style="height:12px;width:56%"></div><div class="sk" style="height:10px;width:46%;margin-top:7px"></div></div><div class="sk" style="height:14px;width:52px"></div></div>
+    </div>
+    </div>
+
+    <!-- NO ROUTE -->
+    <div class="msg hidden" id="v-noroute">
+      <div class="msgicon" style="background:#231a2e;border:1px solid #3b2b4d">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#a98ce0" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6M8.5 11h5"/></svg>
+      </div>
+      <h3>No drivable route found</h3>
+      <p>We couldn't connect <b>Nome, AK</b> to <b>Honolulu, HI</b> over the US highway network. Both endpoints must be reachable by road within the contiguous United States.</p>
+      <div class="why">
+        <b>Request</b>
+        <span>Start<i>Nome, AK — geocoded ✓</i></span>
+        <span>Destination<i>Honolulu, HI — geocoded ✓</i></span>
+        <span>Routing engine<i>NO_ROAD_PATH (422)</i></span>
+      </div>
+      <div class="msgbtns"><button class="ghost">Edit locations</button><button class="solid">Use last route</button></div>
+    </div>
+
+    <!-- OUT OF RANGE -->
+    <div class="msg hidden" id="v-range">
+      <div class="msgicon" style="background:#2e2a1a;border:1px solid #4d431f">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f0b755" stroke-width="1.9" stroke-linecap="round"><path d="M12 3l9.5 16.5h-19z"/><path d="M12 10v4M12 17.2v.1"/></svg>
+      </div>
+      <h3>Segment exceeds vehicle range</h3>
+      <p>No fuel station sits inside the 500&nbsp;mi window on US-6 between <b>Ely, NV</b> and <b>Tonopah, NV</b>. The route is drivable, but not on a 50&nbsp;gal tank at 10&nbsp;mpg.</p>
+      <div class="why">
+        <b>Blocking segment</b>
+        <span>Gap length<i>512 mi</i></span>
+        <span>Vehicle range<i>500 mi</i></span>
+        <span>Shortfall<i style="color:#f0725c">12 mi</i></span>
+        <span>Nearest station off-route<i>Eureka, NV — 7 mi detour</i></span>
+      </div>
+      <div class="msgbtns"><button class="ghost">Allow 10 mi detours</button><button class="solid">Re-route via I-80</button></div>
+    </div>
+
+    <!-- STOP DETAIL -->
+    <div class="hidden" id="v-detail" style="display:none;flex-direction:column;flex:1;min-height:0">
+      <button class="back" id="backBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>
+        All fuel stops
+      </button>
+      <div class="detail" id="detailBody"></div>
+    </div>
+  </aside>
+
+  <div class="mapwrap">
+    <div id="map"></div>
+    <div class="mapbadge">
+      <span>New York, NY <b>→</b> Los Angeles, CA</span>
+      <span><b>2,687</b> mi · <b>7</b> stops</span>
+    </div>
+    <div class="legend">
+      <div><span style="width:22px;height:4px;border-radius:3px;background:#22415c;border:1px solid #fff"></span> Planned route</div>
+      <div><span style="width:12px;height:12px;border-radius:50%;background:#17b5bb;border:2px solid #eafcfd"></span> Fuel stop</div>
+      <div><span style="width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid #f0725c"></span> Selected stop</div>
+    </div>
+    <div class="overlay" id="mapOverlay">
+      <div class="spin"></div>
+      <p id="overlayTxt">Pricing 1,412 stations along the corridor…</p>
+    </div>
+
+    <aside class="drawer" id="drawer">
+      <div class="dwhead">
+        <div>
+          <h3 id="dwTitle">Why this station won</h3>
+          <p id="dwSub">Candidates evaluated inside the reachable range window.</p>
+        </div>
+        <button class="xbtn" id="dwClose">✕</button>
+      </div>
+      <div class="dwbody" id="dwBody"></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+const ROUTE = [[40.712,-74.006],[40.44,-74.60],[40.27,-75.60],[40.20,-77.19],[40.06,-78.50],[40.44,-79.99],[40.10,-81.00],[39.96,-82.99],[39.83,-84.05],[39.77,-86.16],[39.48,-87.40],[39.10,-88.55],[38.63,-90.20],[38.35,-91.50],[37.95,-92.50],[37.21,-93.29],[36.87,-94.90],[36.15,-95.99],[35.72,-96.90],[35.47,-97.52],[35.52,-98.97],[35.22,-100.20],[35.22,-101.83],[35.18,-103.72],[35.17,-104.90],[35.08,-106.65],[35.08,-107.85],[35.08,-108.74],[35.03,-110.70],[35.20,-111.65],[35.22,-112.90],[35.19,-114.05],[34.84,-114.60],[34.90,-116.00],[34.90,-117.02],[34.53,-117.29],[34.24,-117.80],[34.05,-118.24]];
+
+const STOPS = [
+  {n:0,origin:true,name:"Origin fill-up · Speedway #221",city:"Newark, NJ",ll:[40.735,-74.172],price:3.72,gal:41.2,cost:153.26,mi:0,eta:"Depart 06:00",note:"Cheapest within 12 mi of origin",areaAvg:3.89,brand:"Speedway",detour:1.2,amen:["Diesel lanes: 4","DEF at pump","Truck parking: 22"],alts:[["Sunoco, Jersey City",3.86,4.2],["BP, Elizabeth NJ",3.91,6.8],["Wawa, Newark",3.94,1.9]]},
+  {n:1,name:"Pilot Flying J #456",city:"Columbus, OH",ll:[39.96,-82.99],price:3.35,gal:40.8,cost:136.68,mi:412,eta:"+7h 30m",note:"Network discount −$0.24/gal",areaAvg:3.61,brand:"Pilot Flying J",detour:0.8,amen:["Diesel lanes: 8","DEF at pump","Truck parking: 140","Showers"],alts:[["TA Columbus East",3.44,3.1],["Love's, Grove City",3.49,8.4],["Marathon, Hilliard",3.58,5.2]]},
+  {n:2,name:"TA Travel Center",city:"St. Louis, MO",ll:[38.63,-90.20],price:3.28,gal:47.0,cost:154.16,mi:820,eta:"+14h 55m",note:"Lowest price in 180 mi window",areaAvg:3.52,brand:"TA / Petro",detour:1.6,amen:["Diesel lanes: 10","DEF at pump","Truck parking: 210","Scales"],alts:[["Pilot, Troy IL",3.33,12.6],["QuikTrip, Earth City",3.41,2.4],["Love's, Wentzville",3.45,9.1]]},
+  {n:3,name:"QuikTrip #0812",city:"Tulsa, OK",ll:[36.15,-95.99],price:3.19,gal:30.0,cost:95.70,mi:1290,eta:"+23h 25m",note:"State tax arbitrage — fill before TX",areaAvg:3.40,brand:"QuikTrip",detour:2.1,amen:["Diesel lanes: 6","DEF at pump","Truck parking: 60"],alts:[["Love's, Catoosa",3.24,6.5],["Pilot, Sapulpa",3.29,4.0],["TA, Big Cabin",3.31,21.3]]},
+  {n:4,name:"Love's Travel Stop #337",city:"Amarillo, TX",ll:[35.22,-101.83],price:3.22,gal:28.5,cost:91.77,mi:1590,eta:"+28h 55m",note:"Top-up to clear the NM price band",areaAvg:3.44,brand:"Love's",detour:0.6,amen:["Diesel lanes: 8","DEF at pump","Truck parking: 120","Showers"],alts:[["Pilot, Amarillo E",3.27,3.4],["TA, Vega TX",3.35,14.8],["Flying J, Wildorado",3.38,22.1]]},
+  {n:5,name:"Giant Travel Center",city:"Albuquerque, NM",ll:[35.08,-106.65],price:3.31,gal:47.5,cost:157.23,mi:1875,eta:"+34h 05m",note:"Full tank — 475 mi to next viable stop",areaAvg:3.55,brand:"Giant",detour:1.1,amen:["Diesel lanes: 6","DEF at pump","Truck parking: 85"],alts:[["Love's, Rio Rancho",3.39,7.7],["Pilot, Albuquerque W",3.42,3.2],["TA, Grants NM",3.47,58.0]]},
+  {n:6,name:"Pilot Flying J #612",city:"Kingman, AZ",ll:[35.19,-114.05],price:3.58,gal:33.7,cost:120.65,mi:2350,eta:"+42h 45m",note:"Buy only what's needed — CA prices ahead",areaAvg:3.74,brand:"Pilot Flying J",detour:0.9,amen:["Diesel lanes: 8","DEF at pump","Truck parking: 95","Showers"],alts:[["Love's, Kingman",3.63,1.8],["TA, Needles CA",4.02,41.0],["Chevron, Barstow",4.11,155.0]]}
+];
+
+let map, routeLine, markers = [], selected = null, state = "default";
+
+function icon(s, sel){
+  const cls = "mk" + (sel ? " sel" : "");
+  return L.divIcon({className:"", html:`<div class="${cls}">${s.origin?"S":s.n}</div>`, iconSize:[26,26], iconAnchor:[13,13]});
+}
+
+function initMap(){
+  map = L.map("map",{zoomControl:false, attributionControl:true, scrollWheelZoom:true});
+  L.control.zoom({position:"topright"}).addTo(map);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18, attribution:"© OpenStreetMap contributors"}).addTo(map);
+  L.polyline(ROUTE,{color:"#ffffff",weight:8,opacity:.75,lineJoin:"round"}).addTo(map);
+  routeLine = L.polyline(ROUTE,{color:"#0e2338",weight:4,opacity:.95,lineJoin:"round"}).addTo(map);
+  STOPS.forEach(s=>{
+    const m = L.marker(s.ll,{icon:icon(s,false)}).addTo(map);
+    m.on("click",()=>selectStop(s.n));
+    markers.push(m);
+  });
+  L.marker(ROUTE[ROUTE.length-1],{icon:L.divIcon({className:"",html:'<div class="mk end">▣</div>',iconSize:[26,26],iconAnchor:[13,13]})}).addTo(map)
+    .bindTooltip("Los Angeles, CA",{permanent:true,direction:"bottom",className:"mlbl",offset:[0,10]});
+  L.tooltip({permanent:true,direction:"right",className:"mlbl",offset:[14,0]}).setContent("New York, NY").setLatLng(ROUTE[0]).addTo(map);
+  map.fitBounds(routeLine.getBounds(),{padding:[64,64]});
+}
+
+function stopRow(s){
+  return `<button class="stop${selected===s.n?" on":""}" data-n="${s.n}">
+    <span class="pin${s.origin?" o":""}">${s.origin?"S":s.n}</span>
+    <span>
+      <span class="sname">${s.name}</span>
+      <span class="sloc">${s.city} · mile ${s.mi.toLocaleString()}</span>
+      <span class="sprice">$${s.price.toFixed(2)}/gal</span>
+      <span class="badge">${s.note}</span>
+    </span>
+    <span class="sright">
+      <span class="sgal">${s.gal.toFixed(1)} gal</span>
+      <span class="scost">$${s.cost.toFixed(2)}</span>
+      <span class="seta">${s.eta}</span>
+    </span>
+  </button>`;
+}
+
+function renderList(){
+  document.getElementById("v-list").innerHTML = STOPS.map(stopRow).join("");
+  document.querySelectorAll(".stop").forEach(b=>b.addEventListener("click",()=>selectStop(+b.dataset.n)));
+}
+
+function renderDetail(s){
+  const delta = (s.areaAvg - s.price).toFixed(2);
+  document.getElementById("detailBody").innerHTML = `
+    <div class="dcard">
+      <div class="dtitle">
+        <span class="pin${s.origin?" o":""}">${s.origin?"S":s.n}</span>
+        <span>
+          <div style="font-size:16px;font-weight:800;color:#fff">${s.name}</div>
+          <div style="font-size:12.5px;color:var(--mut);margin-top:4px">${s.city} · mile ${s.mi.toLocaleString()} · ${s.eta}</div>
+        </span>
+      </div>
+    </div>
+    <div class="dgrid">
+      <div><small>Price paid</small><strong>$${s.price.toFixed(2)}<span style="font-size:12px;color:var(--mut2)">/gal</span></strong></div>
+      <div><small>Gallons</small><strong>${s.gal.toFixed(1)}</strong></div>
+      <div><small>Stop cost</small><strong>$${s.cost.toFixed(2)}</strong></div>
+      <div><small>Vs. area avg</small><strong style="color:var(--green)">−$${delta}</strong></div>
+    </div>
+    <div class="dcard">
+      <div class="sect">Why this stop</div>
+      <div class="kv"><span>Selection rule</span><b>${s.note}</b></div>
+      <div class="kv"><span>Area average</span><b>$${s.areaAvg.toFixed(2)}/gal</b></div>
+      <div class="kv"><span>Range window</span><b>reachable at mile ${s.mi.toLocaleString()}</b></div>
+      <div class="kv"><span>Tank on arrival</span><b>${s.origin?"empty":(50-s.gal).toFixed(1)+" gal"}</b></div>
+    </div>
+    <div class="dcard">
+      <div class="sect">Nearby alternatives considered</div>
+      ${s.alts.map(a=>`<div class="kv"><span>${a[0]} <i style="font-style:normal;color:var(--mut3)">· ${a[2]} mi detour</i></span><b style="color:var(--red)">$${a[1].toFixed(2)}</b></div>`).join("")}
+      <button class="cmpbtn" id="openCmp" data-n="${s.n}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20h-20"/></svg>
+        Compare all ${s.alts.length+1} candidates
+      </button>
+    </div>
+    <div class="dcard">
+      <div class="sect">Site details</div>
+      <div class="chips">${s.amen.map(a=>`<span class="chip">${a}</span>`).join("")}</div>
+    </div>`;
+}
+
+function selectStop(n){
+  selected = n;
+  STOPS.forEach((s,i)=>markers[i].setIcon(icon(s, s.n===n)));
+  const s = STOPS.find(x=>x.n===n);
+  renderDetail(s);
+  setState("detail", true);
+  map.flyTo(s.ll, 7, {duration:.7});
+}
+
+/* ---- comparison drawer ---- */
+function openCompare(n){
+  const s = STOPS.find(x=>x.n===n);
+  const cands = [{name:s.name, city:s.city, price:s.price, detour:s.detour, win:true}]
+    .concat(s.alts.map(a=>({name:a[0].split(", ")[0], city:a[0].split(", ")[1]||"off-route", price:a[1], detour:a[2], win:false})))
+    .map(c=>{
+      const fuel = s.gal * c.price;
+      const det = (c.detour*2/10) * c.price;
+      return Object.assign(c,{fuel, det, total:fuel+det, mins:Math.round(c.detour*2/50*60)});
+    })
+    .sort((a,b)=>a.total-b.total);
+  const best = cands[0].total, worst = cands[cands.length-1].total;
+
+  document.getElementById("dwTitle").textContent = `${s.origin?"Origin":"Stop "+s.n} · ${s.city} — why this station won`;
+  document.getElementById("dwSub").textContent = `${cands.length} stations were reachable inside this range window. Ranked by landed cost for the ${s.gal.toFixed(1)} gal this stop needs.`;
+
+  document.getElementById("dwBody").innerHTML = `
+    <div class="cmp">
+      <div class="cmprow cmphead"><span>Station</span><span>$/gal</span><span>Detour</span><span>Landed cost</span><span>vs. best</span></div>
+      ${cands.map(c=>`
+        <div class="cmprow${c.win?" win":""}">
+          <span><span class="cmpname">${c.name}</span><span class="cmpsub">${c.city} · +${c.mins} min</span>${c.win?'<span class="wintag">Selected</span>':""}</span>
+          <span class="cmpnum">$${c.price.toFixed(2)}</span>
+          <span class="cmpnum">${c.detour.toFixed(1)} mi</span>
+          <span class="cmptot">$${c.total.toFixed(2)}</span>
+          <span class="cmpdelta" style="color:${c.total===best?"var(--green)":"var(--red)"}">${c.total===best?"best":"+$"+(c.total-best).toFixed(2)}</span>
+        </div>`).join("")}
+    </div>
+
+    <div class="dcard">
+      <div class="sect">Landed cost breakdown</div>
+      <div class="bars">
+        ${cands.map(c=>`
+          <div class="barrow">
+            <span style="color:${c.win?"#fff":"var(--mut)"};font-weight:${c.win?800:600};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
+            <span class="bartrack"><span class="barfuel" style="width:${(c.fuel/worst*100).toFixed(1)}%"></span><span class="bardet" style="width:${(c.det/worst*100).toFixed(1)}%"></span></span>
+            <span style="text-align:right;font-weight:800;color:var(--txt)">$${c.total.toFixed(0)}</span>
+          </div>`).join("")}
+      </div>
+      <div style="display:flex;gap:16px;margin-top:12px;font-size:11.5px;font-weight:600;color:var(--mut2)">
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--teal)"></span>Fuel purchased</span>
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--amber)"></span>Detour fuel burn</span>
+      </div>
+    </div>
+
+    <div class="rule">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2ec4c9" stroke-width="2" stroke-linecap="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.1"/></svg>
+      <p><b>Selection rule.</b> For each range window the solver minimises <code>gallons × price + (detour × 2 ÷ mpg) × price</code>, keeping only stations reachable on the fuel remaining. ${s.note}.</p>
+    </div>
+
+    <div class="dcard">
+      <div class="sect">Excluded from this window</div>
+      <div class="kv"><span>Stations priced but out of range</span><b>34</b></div>
+      <div class="kv"><span>No diesel lane / height limit</span><b>6</b></div>
+      <div class="kv"><span>Stale price feed &gt; 48h</span><b>3</b></div>
+    </div>`;
+
+  document.getElementById("drawer").classList.add("open");
+}
+
+function closeCompare(){ document.getElementById("drawer").classList.remove("open"); }
+
+document.getElementById("dwClose").addEventListener("click", closeCompare);
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeCompare(); });
+document.getElementById("detailBody").addEventListener("click", e=>{
+  const b = e.target.closest("#openCmp");
+  if(b) openCompare(+b.dataset.n);
+});
+
+const VIEWS = {
+  default:["v-default","v-list"],
+  loading:["v-loading"],
+  noroute:["v-noroute"],
+  range:["v-range"],
+  detail:["v-detail"]
+};
+
+function setState(next, keepSel){
+  state = next;
+  if(next!=="detail") closeCompare();
+  Object.values(VIEWS).flat().forEach(id=>{
+    const el = document.getElementById(id);
+    el.classList.add("hidden");
+    if(id==="v-detail") el.style.display="none";
+  });
+  VIEWS[next].forEach(id=>{
+    const el = document.getElementById(id);
+    el.classList.remove("hidden");
+    if(id==="v-detail") el.style.display="flex";
+  });
+  document.querySelector(".form").style.opacity = next==="loading" ? ".6" : "1";
+  document.getElementById("planBtn").disabled = next==="loading";
+  document.getElementById("planTxt").textContent = next==="loading" ? "Optimizing…" : "Plan route";
+  document.getElementById("mapOverlay").classList.toggle("show", next==="loading");
+  document.querySelector(".mapwrap").style.opacity = (next==="noroute"||next==="range") ? ".45" : "1";
+  if(!keepSel && next!=="detail" && selected!==null){
+    selected = null;
+    STOPS.forEach((s,i)=>markers[i].setIcon(icon(s,false)));
+    renderList();
+  }
+  document.querySelectorAll("#states button").forEach(b=>b.classList.toggle("on", b.dataset.state===next));
+}
+
+document.querySelectorAll("#states button").forEach(b=>{
+  b.addEventListener("click",()=>{
+    if(b.dataset.state==="detail"){ selectStop(2); return; }
+    if(b.dataset.state==="compare"){ selectStop(3); openCompare(3); document.querySelectorAll("#states button").forEach(x=>x.classList.toggle("on", x.dataset.state==="compare")); return; }
+    setState(b.dataset.state);
+    if(b.dataset.state==="default" && map) map.flyToBounds(routeLine.getBounds(),{padding:[64,64],duration:.7});
+  });
+});
+document.getElementById("backBtn").addEventListener("click",()=>{
+  setState("default");
+  map.flyToBounds(routeLine.getBounds(),{padding:[64,64],duration:.7});
+});
+document.getElementById("planBtn").addEventListener("click",()=>{
+  setState("loading");
+  setTimeout(()=>setState("default"),1900);
+});
+
+initMap();
+renderList();
+setState("default");
+</script>
+</body>
+</html>

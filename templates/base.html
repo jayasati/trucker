@@ -1,0 +1,42 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}Spotter{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Poppins:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'routing/css/app.css' %}">
+{% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+
+<header class="nav">
+  <div class="brand">
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none"><path d="M22.5 6.2H12.1c-2.6 0-4.7 2.1-4.7 4.7s2.1 4.7 4.7 4.7h5.8c1.1 0 2 .9 2 2s-.9 2-2 2H7.4" stroke="#2ec4c9" stroke-width="3.4" stroke-linecap="round"/></svg>
+    <span>spotter</span>
+  </div>
+  <nav class="tabs">
+    <a href="{% url 'dashboard' %}" class="{% if active_tab == 'dashboard' %}on{% endif %}">Dashboard</a>
+    <a href="{% url 'route-planner' %}" class="{% if active_tab == 'routes' %}on{% endif %}">Routes</a>
+    <a href="#" class="tab-inert" title="Not part of this build">Drivers</a>
+    <a href="#" class="tab-inert" title="Not part of this build">Fuel</a>
+    <a href="#" class="tab-inert" title="Not part of this build">Analytics</a>
+    <a href="#" class="tab-inert" title="Not part of this build">Settings</a>
+  </nav>
+  <div class="navr">
+    <div class="livepill"><span class="dot"></span><span>412 trucks live</span></div>
+    <div class="bell">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#8299ac" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      <span class="bellbadge">4</span>
+    </div>
+    <div class="avatar">DR</div>
+  </div>
+</header>
+
+{% block content %}{% endblock %}
+
+{% block extra_body %}{% endblock %}
+</body>
+</html>

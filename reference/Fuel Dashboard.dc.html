@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Poppins:wght@600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;padding:0;background:#060f18}
+body{font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#34d3d8;text-decoration:none}
+a:hover{color:#7cebee}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#1d3346;border-radius:8px}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#060f18;color:#e8f0f6">
+
+  <header style="display:flex;align-items:center;justify-content:space-between;gap:32px;padding:0 28px;height:68px;background:#0a1521;border-bottom:1px solid #16283a;position:sticky;top:0;z-index:20">
+    <div style="display:flex;align-items:center;gap:11px;flex:none">
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none"><path d="M22.5 6.2H12.1c-2.6 0-4.7 2.1-4.7 4.7s2.1 4.7 4.7 4.7h5.8c1.1 0 2 .9 2 2s-.9 2-2 2H7.4" stroke="#2ec4c9" stroke-width="3.4" stroke-linecap="round"></path></svg>
+      <span style="font-family:Poppins,sans-serif;font-weight:600;font-size:21px;letter-spacing:-0.01em;color:#fff">spotter</span>
+    </div>
+    <nav style="display:flex;align-items:center;gap:4px;font-size:14.5px;font-weight:600">
+      <span style="padding:23px 16px 21px;color:#fff;border-bottom:2px solid #2ec4c9">Dashboard</span>
+      <span style="padding:23px 16px 21px;color:#8299ac;border-bottom:2px solid transparent;cursor:pointer" style-hover="color:#e8f0f6">Routes</span>
+      <span style="padding:23px 16px 21px;color:#8299ac;border-bottom:2px solid transparent;cursor:pointer" style-hover="color:#e8f0f6">Drivers</span>
+      <span style="padding:23px 16px 21px;color:#8299ac;border-bottom:2px solid transparent;cursor:pointer" style-hover="color:#e8f0f6">Fuel</span>
+      <span style="padding:23px 16px 21px;color:#8299ac;border-bottom:2px solid transparent;cursor:pointer" style-hover="color:#e8f0f6">Analytics</span>
+      <span style="padding:23px 16px 21px;color:#8299ac;border-bottom:2px solid transparent;cursor:pointer" style-hover="color:#e8f0f6">Settings</span>
+    </nav>
+    <div style="display:flex;align-items:center;gap:18px;flex:none">
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:#0f1e2d;border:1px solid #1c3145;border-radius:8px;font-size:13px;font-weight:600;color:#a7bccd">
+        <span style="width:7px;height:7px;border-radius:50%;background:#3ddc97;box-shadow:0 0 0 3px rgba(61,220,151,.15)"></span>
+        <span>412 trucks live</span>
+      </div>
+      <div style="position:relative;display:flex">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#8299ac" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+        <span style="position:absolute;top:-3px;right:-4px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:#f0725c;color:#0a1521;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center">4</span>
+      </div>
+      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,#2ec4c9,#1a6f9e);display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;color:#04141a">DR</div>
+    </div>
+  </header>
+
+  <main style="max-width:1560px;margin:0 auto;padding:26px 28px 56px;display:flex;flex-direction:column;gap:18px">
+
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap">
+      <div>
+        <h1 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-0.02em;color:#fff">Fuel Cost Overview</h1>
+        <p style="margin:6px 0 0;font-size:14px;color:#7d94a8">Fleet-wide spend, savings and plan adherence · updated 4 minutes ago</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="display:flex;background:#0d1926;border:1px solid #1c3145;border-radius:9px;padding:3px">
+          <span style="padding:8px 14px;border-radius:6px;font-size:13px;font-weight:700;background:#17334a;color:#fff">MTD</span>
+          <span style="padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;color:#8299ac;cursor:pointer" style-hover="color:#e8f0f6">QTD</span>
+          <span style="padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;color:#8299ac;cursor:pointer" style-hover="color:#e8f0f6">YTD</span>
+        </div>
+        <button style="display:flex;align-items:center;gap:8px;padding:10px 16px;border:1px solid #1c3145;background:#0d1926;color:#c9d9e5;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer" style-hover="background:#132436;color:#fff">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg>
+          Export
+        </button>
+        <button style="display:flex;align-items:center;gap:8px;padding:10px 18px;border:none;background:#2ec4c9;color:#04202a;border-radius:9px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer" style-hover="background:#3ddade">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.3L19 9l-5.1 1.7L12 16l-1.9-5.3L5 9l5.1-1.7z"></path></svg>
+          Run optimizer
+        </button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
+      <div style="background:#0d1926;border:1px solid #17293a;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#7d94a8">Fuel spend · MTD</span>
+        <span style="font-size:31px;font-weight:800;letter-spacing:-0.025em;color:#fff">$1,284,610</span>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600">
+          <span style="color:#3ddc97">▼ 6.4%</span><span style="color:#63798b">vs. last month</span>
+        </div>
+        <div style="height:4px;border-radius:3px;background:#152736;overflow:hidden"><div style="width:71%;height:100%;background:#2ec4c9"></div></div>
+        <span style="font-size:11.5px;color:#63798b">71% of $1.81M monthly budget</span>
+      </div>
+
+      <div style="background:#0d1926;border:1px solid #17293a;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#7d94a8">Savings captured</span>
+        <span style="font-size:31px;font-weight:800;letter-spacing:-0.025em;color:#2ec4c9">$148,320</span>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600">
+          <span style="color:#3ddc97">▲ $22.1K</span><span style="color:#63798b">vs. last month</span>
+        </div>
+        <div style="height:4px;border-radius:3px;background:#152736;overflow:hidden"><div style="width:88%;height:100%;background:#3ddc97"></div></div>
+        <span style="font-size:11.5px;color:#63798b">88% of $168K quarterly target</span>
+      </div>
+
+      <div style="background:#0d1926;border:1px solid #17293a;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#7d94a8">Avg. price paid</span>
+        <span style="font-size:31px;font-weight:800;letter-spacing:-0.025em;color:#fff">$3.31<span style="font-size:16px;font-weight:700;color:#7d94a8">/gal</span></span>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600">
+          <span style="color:#3ddc97">▼ $0.27</span><span style="color:#63798b">below DOE retail avg.</span>
+        </div>
+        <div style="height:4px;border-radius:3px;background:#152736;overflow:hidden"><div style="width:59%;height:100%;background:#2ec4c9"></div></div>
+        <span style="font-size:11.5px;color:#63798b">388,100 gal purchased this month</span>
+      </div>
+
+      <div style="background:#0d1926;border:1px solid #17293a;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#7d94a8">Plan adherence</span>
+        <span style="font-size:31px;font-weight:800;letter-spacing:-0.025em;color:#fff">87.4%</span>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600">
+          <span style="color:#f0725c">▼ 2.1 pts</span><span style="color:#63798b">52 off-plan stops</span>
+        </div>
+        <div style="height:4px;border-radius:3px;background:#152736;overflow:hidden"><div style="width:87%;height:100%;background:#f0b755"></div></div>
+        <span style="font-size:11.5px;color:#63798b">Target 92% · $31K leakage</span>
+      </div>
+
+      <div style="background:#0d1926;border:1px solid #17293a;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#7d94a8">Fleet efficiency</span>
+        <span style="font-size:31px;font-weight:800;letter-spacing:-0.025em;color:#fff">7.12<span style="font-size:16px;font-weight:700;color:#7d94a8"> mpg</span></span>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600">
+          <span style="color:#3ddc97">▲ 0.18</span><span style="color:#63798b">idle 11.4% of engine hrs</span>
+        </div>
+        <div style="height:4px;border-radius:3px;background:#152736;overflow:hidden"><div style="width:64%;height:100%;background:#2ec4c9"></div></div>
+        <span style="font-size:11.5px;color:#63798b">412 of 468 trucks reporting</span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1.85fr) minmax(0,1fr);gap:16px;align-items:stretch">
+
+      <section style="background:#0d1926;border:1px solid #17293a;border-radius:14px;padding:20px 22px 14px;display:flex;flex-direction:column;gap:18px;min-width:0">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0;font-size:16px;font-weight:800;color:#fff">Spend vs. unoptimized baseline</h2>
+            <p style="margin:5px 0 0;font-size:12.5px;color:#7d94a8">What the fleet paid against retail-rack pricing on the same lanes</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;font-size:12px;font-weight:600;color:#a7bccd">
+            <span style="display:flex;align-items:center;gap:7px"><span style="width:11px;height:11px;border-radius:3px;background:#2ec4c9"></span>Actual spend</span>
+            <span style="display:flex;align-items:center;gap:7px"><span style="width:16px;height:2px;background:#f0b755;border-radius:2px"></span>Baseline</span>
+          </div>
+        </div>
+
+        <div style="position:relative;width:100%">
+          <svg viewBox="0 0 780 250" width="100%" style="display:block;overflow:visible">
+            <g stroke="#16283a" stroke-width="1">
+              <line x1="46" y1="20" x2="780" y2="20"></line>
+              <line x1="46" y1="72" x2="780" y2="72"></line>
+              <line x1="46" y1="124" x2="780" y2="124"></line>
+              <line x1="46" y1="176" x2="780" y2="176"></line>
+              <line x1="46" y1="228" x2="780" y2="228"></line>
+            </g>
+            <g fill="#63798b" font-size="11" font-family="Manrope,sans-serif" font-weight="600" text-anchor="end">
+              <text x="36" y="24">$400K</text>
+              <text x="36" y="76">$300K</text>
+              <text x="36" y="128">$200K</text>
+              <text x="36" y="180">$100K</text>
+              <text x="36" y="232">$0</text>
+            </g>
+            <g fill="#2ec4c9" opacity="0.85">
+              <rect x="68.5" y="88.6" width="35" height="139.4" rx="4" style-hover="opacity:1"></rect>
+              <rect x="128.2" y="76.7" width="35" height="151.3" rx="4" style-hover="opacity:1"></rect>
+              <rect x="187.9" y="69.4" width="35" height="158.6" rx="4" style-hover="opacity:1"></rect>
+              <rect x="247.5" y="81.4" width="35" height="146.6" rx="4" style-hover="opacity:1"></rect>
+              <rect x="307.2" y="64.7" width="35" height="163.3" rx="4" style-hover="opacity:1"></rect>
+              <rect x="366.9" y="56.4" width="35" height="171.6" rx="4" style-hover="opacity:1"></rect>
+              <rect x="426.5" y="73" width="35" height="155" rx="4" style-hover="opacity:1"></rect>
+              <rect x="486.2" y="60.6" width="35" height="167.4" rx="4" style-hover="opacity:1"></rect>
+              <rect x="545.9" y="50.7" width="35" height="177.3" rx="4" style-hover="opacity:1"></rect>
+              <rect x="605.5" y="62.6" width="35" height="165.4" rx="4" style-hover="opacity:1"></rect>
+              <rect x="665.2" y="53.3" width="35" height="174.7" rx="4" style-hover="opacity:1"></rect>
+              <rect x="724.9" y="45" width="35" height="183" rx="4" style-hover="opacity:1"></rect>
+            </g>
+            <polyline points="86,71.9 145.5,58.5 205.2,50.4 264.8,63.8 324.5,45.1 384.2,35.8 443.8,54.4 503.5,40.5 563.2,29.4 622.8,42.8 682.5,32.3 742.2,23" fill="none" stroke="#f0b755" stroke-width="2" stroke-linejoin="round" stroke-dasharray="5 4"></polyline>
+            <g fill="#63798b" font-size="10.5" font-family="Manrope,sans-serif" font-weight="600" text-anchor="middle">
+              <text x="86" y="246">Jun 2</text>
+              <text x="145.5" y="246">Jun 9</text>
+              <text x="205.2" y="246">Jun 16</text>
+              <text x="264.8" y="246">Jun 23</text>
+              <text x="324.5" y="246">Jun 30</text>
+              <text x="384.2" y="246">Jul 7</text>
+              <text x="443.8" y="246">Jul 14</text>
+              <text x="503.5" y="246">Jul 21</text>
+              <text x="563.2" y="246">Jul 28</text>
+              <text x="622.8" y="246">Aug 4</text>
+              <text x="682.5" y="246">Aug 11</text>
+              <text x="742.2" y="246">Aug 18</text>
+            </g>
+          </svg>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#17293a;border-radius:10px;overflow:hidden;margin-bottom:6px">
+          <div style="background:#0b1724;padding:13px 16px;display:flex;flex-direction:column;gap:4px">
+            <span style="font-size:11.5px;font-weight:700;color:#7d94a8">Avoided cost, period</span>
+            <span style="font-size:18px;font-weight:800;color:#fff">$421,880</span>
+          </div>
+          <div style="background:#0b1724;padding:13px 16px;display:flex;flex-direction:column;gap:4px">
+            <span style="font-size:11.5px;font-weight:700;color:#7d94a8">Avg. discount vs. rack</span>
+            <span style="font-size:18px;font-weight:800;color:#fff">$0.41/gal</span>
+          </div>
+          <div style="background:#0b1724;padding:13px 16px;display:flex;flex-direction:column;gap:4px">
+            <span style="font-size:11.5px;font-weight:700;color:#7d94a8">Cost per mile</span>
+            <span style="font-size:18px;font-weight:800;color:#fff">$0.581</span>
+          </div>
+        </div>
+      </section>
+
+      <section style="background:#0d1926;border:1px solid #17293a;border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:18px;min-width:0">
+        <div>
+          <h2 style="margin:0;font-size:16px;font-weight:800;color:#fff">Where savings came from</h2>
+          <p style="margin:5px 0 0;font-size:12.5px;color:#7d94a8">Month to date · $148,320 total</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:22px">
+          <div style="position:relative;flex:none;width:132px;height:132px">
+            <svg width="132" height="132" viewBox="0 0 132 132" style="transform:rotate(-90deg)">
+              <circle cx="66" cy="66" r="52" fill="none" stroke="#152736" stroke-width="17"></circle>
+              <circle cx="66" cy="66" r="52" fill="none" stroke="#2ec4c9" stroke-width="17" stroke-dasharray="134 193"></circle>
+              <circle cx="66" cy="66" r="52" fill="none" stroke="#4a9fd8" stroke-width="17" stroke-dasharray="98 229" stroke-dashoffset="-136"></circle>
+              <circle cx="66" cy="66" r="52" fill="none" stroke="#7b6ee0" stroke-width="17" stroke-dasharray="59 268" stroke-dashoffset="-236"></circle>
+              <circle cx="66" cy="66" r="52" fill="none" stroke="#3ddc97" stroke-width="17" stroke-dasharray="34 293" stroke-dashoffset="-297"></circle>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">
+              <span style="font-size:19px;font-weight:800;color:#fff">11.6%</span>
+              <span style="font-size:10.5px;font-weight:700;color:#7d94a8">of spend</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:11px;flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:9px;font-size:12.5px">
+              <span style="width:9px;height:9px;border-radius:2px;background:#2ec4c9;flex:none"></span>
+              <span style="flex:1;color:#c9d9e5;font-weight:600">Network discounts</span>
+              <span style="font-weight:800;color:#fff">$61,400</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px;font-size:12.5px">
+              <span style="width:9px;height:9px;border-radius:2px;background:#4a9fd8;flex:none"></span>
+              <span style="flex:1;color:#c9d9e5;font-weight:600">Stop selection</span>
+              <span style="font-weight:800;color:#fff">$44,700</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px;font-size:12.5px">
+              <span style="width:9px;height:9px;border-radius:2px;background:#7b6ee0;flex:none"></span>
+              <span style="flex:1;color:#c9d9e5;font-weight:600">State tax arbitrage</span>
+              <span style="font-weight:800;color:#fff">$27,300</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px;font-size:12.5px">
+              <span style="width:9px;height:9px;border-radius:2px;background:#3ddc97;flex:none"></span>
+              <span style="flex:1;color:#c9d9e5;font-weight:600">Idle &amp; MPG coaching</span>
+              <span style="font-weight:800;color:#fff">$14,920</span>
+            </div>
+          </div>
+        </div>
+        <div style="height:1px;background:#17293a"></div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#7d94a8">Top networks by volume</span>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="width:112px;font-size:12.5px;font-weight:600;color:#c9d9e5">Pilot Flying J</span>
+              <div style="flex:1;height:7px;border-radius:4px;background:#152736;overflow:hidden"><div style="width:78%;height:100%;background:#2ec4c9;border-radius:4px"></div></div>
+              <span style="width:56px;text-align:right;font-size:12px;font-weight:700;color:#a7bccd">142K gal</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="width:112px;font-size:12.5px;font-weight:600;color:#c9d9e5">Love's</span>
+              <div style="flex:1;height:7px;border-radius:4px;background:#152736;overflow:hidden"><div style="width:61%;height:100%;background:#2ec4c9;border-radius:4px"></div></div>
+              <span style="width:56px;text-align:right;font-size:12px;font-weight:700;color:#a7bccd">111K gal</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="width:112px;font-size:12.5px;font-weight:600;color:#c9d9e5">TA / Petro</span>
+              <div style="flex:1;height:7px;border-radius:4px;background:#152736;overflow:hidden"><div style="width:44%;height:100%;background:#2ec4c9;border-radius:4px"></div></div>
+              <span style="width:56px;text-align:right;font-size:12px;font-weight:700;color:#a7bccd">79K gal</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="width:112px;font-size:12.5px;font-weight:600;color:#c9d9e5">Off-network</span>
+              <div style="flex:1;height:7px;border-radius:4px;background:#152736;overflow:hidden"><div style="width:16%;height:100%;background:#f0725c;border-radius:4px"></div></div>
+              <span style="width:56px;text-align:right;font-size:12px;font-weight:700;color:#a7bccd">28K gal</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1.85fr) minmax(0,1fr);gap:16px;align-items:start">
+
+      <section style="background:#0d1926;border:1px solid #17293a;border-radius:14px;overflow:hidden;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 22px 16px">
+          <div>
+            <h2 style="margin:0;font-size:16px;font-weight:800;color:#fff">Optimization opportunities</h2>
+            <p style="margin:5px 0 0;font-size:12.5px;color:#7d94a8">Lanes where re-planned stops beat current purchasing</p>
+          </div>
+          <span style="font-size:12.5px;font-weight:700;color:#2ec4c9;cursor:pointer">View all 34 lanes →</span>
+        </div>
+        <div style="display:grid;grid-template-columns:2.1fr .8fr .9fr .9fr 1fr .9fr;gap:8px;padding:10px 22px;background:#0b1724;border-top:1px solid #17293a;border-bottom:1px solid #17293a;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#63798b">
+          <span>Lane</span><span style="text-align:right">Loads/wk</span><span style="text-align:right">Now $/mi</span><span style="text-align:right">Optimized</span><span style="text-align:right">Weekly savings</span><span style="text-align:right">Action</span>
+        </div>
+        <div style="display:flex;flex-direction:column">
+          <div style="display:grid;grid-template-columns:2.1fr .8fr .9fr .9fr 1fr .9fr;gap:8px;align-items:center;padding:14px 22px;border-bottom:1px solid #132030" style-hover="background:#0f1e2d">
+            <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:13.5px;font-weight:700;color:#fff">Chicago, IL → Dallas, TX</span><span style="font-size:11.5px;color:#63798b">I-55 · I-44 · 968 mi</span></div>
+            <span style="text-align:right;font-size:13px;font-weight:600;color:#c9d9e5">42</span>
+            <span style="text-align:right;font-size:13px;font-weight:600;color:#c9d9e5">$0.612</span>
+            <span style="text-align:right;font-size:13px;font-weight:700;color:#2ec4c9">$0.548</span>
+            <span style="text-align:right;font-size:13.5px;font-weight:800;color:#3ddc97">+$8,240</span>
+            <span style="justify-self:end;padding:6px 12px;border-radius:7px;background:#12303a;border:1px solid #1f5761;color:#3ddade;font-size:11.5px;font-weight:800;cursor:pointer" style-hover="background:#17414f">Apply</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2.1fr .8fr .9fr .9fr 1fr .9fr;gap:8px;align-items:center;padding:14px 22px;border-bottom:1px solid #132030" style-hover="background:#0f1e2d">
+            <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:13.5px;font-weight:700;color:#fff">Atlanta, GA → Newark, NJ</span><span style="font-size:11.5px;color:#63798b">I-85 · I-95 · 872 mi</span></div>
+            <span style="text-align:right;font-size:13px;font-weight:600;color:#c9d9e5">31</span>
+            <span style="text-align:right;font-size:13px;font-weight:600;color:#c9d9e5">$0.588</span>
+            <span style="text-align:right;font-size:13px;font-weight:700;color:#2ec4c9">$0.531</span>
+            <span style="text-align:right;font-size:13.5px;font-weight:800;color:#3ddc97">+$6,110</span>
+            <span style="justify-self:end;padding:6px 12px;border-radius:7px;background:#12303a;border:1px solid #1f5761;color:#3ddade;font-size:11.5px;font-weight:800;cursor:pointer" style-hover="background:#17414f">Apply</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2.1fr .8fr .9fr .9fr 1fr .9fr;gap:8px;align-items:center;padding:14px 22px;border-bottom:1px solid #132030" style-hover="background:#0f1e2d">
+            <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:13.5px;font-weight:700;color:#fff">Los Angeles, CA → Phoenix, AZ</span><span style="font-size:11.5px;color:#63798b">I-10 · 372 mi</span></div>
+            <span style="text-align:right;font-size:13px;font-weight:600;color:#c9d9e5">55</span>
+            <span style="text-align:right;font-size:13px;font-weight:600;color:#c9d9e5">$0.641</span>
+            <span style="text-align:right;font-size:13px;font-weight:700;color:#2ec4c9">$0.602</span>
+            <span style="text-align:right;font-size:13.5px;font-weight:800;color:#3ddc97">+$4,780</span>
+            <span style="justify-self:end;padding:6px 12px;border-radius:7px;background:#12303a;border:1px solid #1f5761;color:#3ddade;font-size:11.5px;font-weight:800;cursor:pointer" style-hover="background:#17414f">Apply</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2.1fr .8fr .9fr .9fr 1fr .9fr;gap:8px;align-items:center;padding:14px 22px;border-bottom:1px solid #132030" style-hover="background:#0f1e2d">
+            <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:13.5px;font-weight:700;color:#fff">Denver, CO → Salt Lake City, UT</span><span style="font-size:11.5px;color:#63798b">I-80 · 525 mi</span></div>
+            <span style="text-align:right;font-size:13px;font-weight:600;color:#c9d9e5">24</span>
+            <span style="text-align:right;font-size:13px;font-weight:600;color:#c9d9e5">$0.674</span>
+            <span style="text-align:right;font-size:13px;font-weight:700;color:#2ec4c9">$0.615</span>
+            <span style="text-align:right;font-size:13.5px;font-weight:800;color:#3ddc97">+$3,950</span>
+            <span style="justify-self:end;padding:6px 12px;border-radius:7px;background:#12303a;border:1px solid #1f5761;color:#3ddade;font-size:11.5px;font-weight:800;cursor:pointer" style-hover="background:#17414f">Apply</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2.1fr .8fr .9fr .9fr 1fr .9fr;gap:8px;align-items:center;padding:14px 22px" style-hover="background:#0f1e2d">
+            <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:13.5px;font-weight:700;color:#fff">Memphis, TN → Houston, TX</span><span style="font-size:11.5px;color:#63798b">I-40 · US-59 · 587 mi</span></div>
+            <span style="text-align:right;font-size:13px;font-weight:600;color:#c9d9e5">28</span>
+            <span style="text-align:right;font-size:13px;font-weight:600;color:#c9d9e5">$0.596</span>
+            <span style="text-align:right;font-size:13px;font-weight:700;color:#2ec4c9">$0.559</span>
+            <span style="text-align:right;font-size:13.5px;font-weight:800;color:#3ddc97">+$3,120</span>
+            <span style="justify-self:end;padding:6px 12px;border-radius:7px;background:#12303a;border:1px solid #1f5761;color:#3ddade;font-size:11.5px;font-weight:800;cursor:pointer" style-hover="background:#17414f">Apply</span>
+          </div>
+        </div>
+      </section>
+
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <section style="background:#0d1926;border:1px solid #17293a;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <h2 style="margin:0;font-size:16px;font-weight:800;color:#fff">Exceptions</h2>
+            <span style="padding:3px 9px;border-radius:20px;background:#3a1a18;color:#f0725c;font-size:11px;font-weight:800">4 open</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;gap:12px;padding:12px 13px;background:#0b1724;border:1px solid #17293a;border-left:2px solid #f0725c;border-radius:10px">
+              <div style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1">
+                <span style="font-size:13px;font-weight:700;color:#fff">Off-network purchase</span>
+                <span style="font-size:12px;color:#8299ac;line-height:1.4">Truck 4412 · Barstow, CA · 118 gal at $4.09 — $78.20 over plan</span>
+              </div>
+              <span style="font-size:11px;font-weight:600;color:#546b7d;white-space:nowrap">14m</span>
+            </div>
+            <div style="display:flex;gap:12px;padding:12px 13px;background:#0b1724;border:1px solid #17293a;border-left:2px solid #f0b755;border-radius:10px">
+              <div style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1">
+                <span style="font-size:13px;font-weight:700;color:#fff">Price spike detected</span>
+                <span style="font-size:12px;color:#8299ac;line-height:1.4">I-80 corridor, NE — rack up $0.19/gal in 24h · 23 loads affected</span>
+              </div>
+              <span style="font-size:11px;font-weight:600;color:#546b7d;white-space:nowrap">1h</span>
+            </div>
+            <div style="display:flex;gap:12px;padding:12px 13px;background:#0b1724;border:1px solid #17293a;border-left:2px solid #f0b755;border-radius:10px">
+              <div style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1">
+                <span style="font-size:13px;font-weight:700;color:#fff">Plan deviation</span>
+                <span style="font-size:12px;color:#8299ac;line-height:1.4">Load #88214 skipped Stop 3 (Columbus, OH) · est. −$62</span>
+              </div>
+              <span style="font-size:11px;font-weight:600;color:#546b7d;white-space:nowrap">3h</span>
+            </div>
+            <div style="display:flex;gap:12px;padding:12px 13px;background:#0b1724;border:1px solid #17293a;border-left:2px solid #4a9fd8;border-radius:10px">
+              <div style="display:flex;flex-direction:column;gap:3px;min-width:0;flex:1">
+                <span style="font-size:13px;font-weight:700;color:#fff">Card declined</span>
+                <span style="font-size:12px;color:#8299ac;line-height:1.4">M. Ortega · Love's #612, Effingham IL · limit exceeded</span>
+              </div>
+              <span style="font-size:11px;font-weight:600;color:#546b7d;white-space:nowrap">3h</span>
+            </div>
+          </div>
+        </section>
+
+        <section style="background:#0d1926;border:1px solid #17293a;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <h2 style="margin:0;font-size:16px;font-weight:800;color:#fff">Driver adherence</h2>
+            <span style="font-size:12px;font-weight:700;color:#7d94a8">Last 30 days</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="width:30px;height:30px;border-radius:50%;background:#14384a;color:#3ddade;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">RK</span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px"><span style="font-weight:700;color:#e8f0f6">R. Kaminski</span><span style="font-weight:800;color:#3ddc97">99%</span></div>
+                <div style="height:5px;border-radius:3px;background:#152736;overflow:hidden"><div style="width:99%;height:100%;background:#3ddc97"></div></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="width:30px;height:30px;border-radius:50%;background:#14384a;color:#3ddade;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">DA</span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px"><span style="font-weight:700;color:#e8f0f6">D. Achebe</span><span style="font-weight:800;color:#3ddc97">96%</span></div>
+                <div style="height:5px;border-radius:3px;background:#152736;overflow:hidden"><div style="width:96%;height:100%;background:#3ddc97"></div></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="width:30px;height:30px;border-radius:50%;background:#2e2a1a;color:#f0b755;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">MO</span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px"><span style="font-weight:700;color:#e8f0f6">M. Ortega</span><span style="font-weight:800;color:#f0b755">74%</span></div>
+                <div style="height:5px;border-radius:3px;background:#152736;overflow:hidden"><div style="width:74%;height:100%;background:#f0b755"></div></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="width:30px;height:30px;border-radius:50%;background:#3a1a18;color:#f0725c;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">TB</span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px"><span style="font-weight:700;color:#e8f0f6">T. Brennan</span><span style="font-weight:800;color:#f0725c">61%</span></div>
+                <div style="height:5px;border-radius:3px;background:#152736;overflow:hidden"><div style="width:61%;height:100%;background:#f0725c"></div></div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:12px;border-top:1px solid #17293a;font-size:12.5px">
+            <span style="color:#7d94a8;font-weight:600">17 drivers below 80% target</span>
+            <span style="color:#2ec4c9;font-weight:700;cursor:pointer">Coach →</span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+</x-dc>
+</body>
+</html>
