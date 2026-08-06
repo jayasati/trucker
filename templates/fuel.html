@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Spotter · Fuel Station Directory{% endblock %}
+
+{% block content %}
+<div class="dash">
+  <main class="dmain">
+
+    <div class="dhead">
+      <div>
+        <h1>Fuel Station Directory</h1>
+        <p>Search and filter all {{ paginator.count }} tracked stations</p>
+      </div>
+    </div>
+
+    <form class="filterbar" method="get">
+      <div class="ffield grow">
+        <label for="q">Search</label>
+        <input type="text" id="q" name="q" value="{{ query }}" placeholder="Station or city name…">
+      </div>
+      <div class="ffield">
+        <label for="state">State</label>
+        <select id="state" name="state">
+          <option value="">All states</option>
+          {% for opt in states %}
+          <option value="{{ opt.state }}" {% if opt.state == selected_state %}selected{% endif %}>{{ opt.state }} ({{ opt.n }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="ffield narrow">
+        <label for="min_price">Min $/gal</label>
+        <input type="number" step="0.01" id="min_price" name="min_price" value="{{ min_price }}" placeholder="0.00">
+      </div>
+      <div class="ffield narrow">
+        <label for="max_price">Max $/gal</label>
+        <input type="number" step="0.01" id="max_price" name="max_price" value="{{ max_price }}" placeholder="10.00">
+      </div>
+      <div class="ffield">
+        <label for="sort">Sort by</label>
+        <select id="sort" name="sort">
+          <option value="price_asc" {% if sort == "price_asc" %}selected{% endif %}>Price: low to high</option>
+          <option value="price_desc" {% if sort == "price_desc" %}selected{% endif %}>Price: high to low</option>
+          <option value="name" {% if sort == "name" %}selected{% endif %}>Station name</option>
+          <option value="state" {% if sort == "state" %}selected{% endif %}>State</option>
+        </select>
+      </div>
+      <button type="submit" class="btn-solid">Filter</button>
+      {% if query or selected_state or min_price or max_price or sort != "price_asc" %}
+      <a href="{% url 'fuel-directory' %}" class="btn-ghost">Reset</a>
+      {% endif %}
+    </form>
+
+    <section class="card flush">
+      <div class="cardhead-row">
+        <span class="resultcount"><b>{{ paginator.count }}</b> station{{ paginator.count|pluralize }} match{{ paginator.count|pluralize:"es" }}{% if query or selected_state or min_price or max_price %} your filters{% endif %}</span>
+      </div>
+      <div class="tablehead cols5">
+        <span>Price</span><span>Station</span><span>City</span><span>State</span><span>Geocode</span>
+      </div>
+      <div>
+        {% for s in stations %}
+        <div class="trow cols5">
+          <span class="topt">${{ s.current_price|floatformat:3 }}</span>
+          <div class="lane"><b>{{ s.name }}</b><span>{{ s.address }}</span></div>
+          <span class="tnum">{{ s.city }}</span>
+          <span class="tnum">{{ s.state }}</span>
+          <span class="tnum"><span class="geobadge {{ s.geocode_source }}">{{ s.geocode_source }}</span></span>
+        </div>
+        {% empty %}
+        <div class="trow cols5" style="grid-template-columns:1fr">
+          <span class="tnum" style="text-align:center;padding:20px 0">No stations match those filters.</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if is_paginated %}
+      <div class="pagination">
+        <span class="pageinfo">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+        <div class="pagelinks">
+          {% if page_obj.has_previous %}
+          <a class="pagebtn" href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">&larr; Prev</a>
+          {% else %}
+          <span class="pagebtn disabled">&larr; Prev</span>
+          {% endif %}
+          {% if page_obj.has_next %}
+          <a class="pagebtn" href="?{{ querystring }}&page={{ page_obj.next_page_number }}">Next &rarr;</a>
+          {% else %}
+          <span class="pagebtn disabled">Next &rarr;</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </section>
+
+  </main>
+</div>
+{% endblock %}

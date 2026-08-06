@@ -24,7 +24,6 @@ button{font-family:inherit}
 .tabs a{padding:23px 16px 21px;color:var(--mut);border-bottom:2px solid transparent}
 .tabs a:hover{color:var(--txt)}
 .tabs a.on{color:#fff;border-bottom-color:var(--teal)}
-.tabs a.tab-inert{cursor:default}
 @media (max-width:1120px){.tabs a:nth-child(n+4){display:none}}
 .navr{display:flex;align-items:center;gap:16px;flex:none}
 .livepill{display:flex;align-items:center;gap:8px;padding:7px 12px;background:#0f1e2d;border:1px solid var(--stroke);border-radius:8px;font-size:13px;font-weight:600;color:#a7bccd}
@@ -261,8 +260,42 @@ button{font-family:inherit}
 .dfoot span:first-child{color:var(--mut2);font-weight:600}
 .dfoot a{font-weight:700}
 
+/* ==== filter bar (fuel directory) ==== */
+.filterbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.ffield{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ffield label{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--mut2)}
+.ffield input,.ffield select{background:var(--sunk);border:1px solid var(--stroke);border-radius:9px;padding:0 12px;height:38px;color:var(--txt);font-family:inherit;font-size:13px;font-weight:600;min-width:0}
+.ffield input:focus,.ffield select:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(46,196,201,.12)}
+.ffield input::placeholder{color:#4d647a;font-weight:500}
+.ffield.grow{flex:1;min-width:180px}
+.ffield.narrow input{width:110px}
+.filterbar .btn-solid,.filterbar .btn-ghost{height:38px;padding:0 16px}
+.resultcount{font-size:12.5px;font-weight:600;color:var(--mut2);padding:2px 2px}
+.resultcount b{color:var(--txt);font-weight:800}
+
+.geobadge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;font-size:10.5px;font-weight:800;letter-spacing:.02em;text-transform:uppercase}
+.geobadge.city{background:#0f2a2c;border:1px solid #1c4e52;color:var(--teal-br)}
+.geobadge.state_centroid{background:#2e2a1a;border:1px solid #4d431f;color:var(--amber)}
+
+.pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 22px;border-top:1px solid var(--line)}
+.pagination .pageinfo{font-size:12.5px;font-weight:600;color:var(--mut2)}
+.pagelinks{display:flex;gap:8px}
+.pagebtn{padding:8px 14px;border-radius:8px;border:1px solid var(--stroke);background:var(--sunk);color:var(--txt2);font-size:12.5px;font-weight:700;cursor:pointer}
+.pagebtn:hover{background:#132436;color:#fff}
+.pagebtn.disabled{opacity:.4;pointer-events:none}
+
+/* ==== analytics ==== */
+.pctrow{display:flex;flex-wrap:wrap;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.pctrow div{flex:1;min-width:90px;background:var(--sunk);padding:14px 12px;display:flex;flex-direction:column;gap:4px;align-items:center}
+.pctrow span{font-size:11px;font-weight:700;color:var(--mut2);text-transform:uppercase;letter-spacing:.03em}
+.pctrow b{font-size:17px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}
+
+.tablehead.cols5,.trow.cols5{grid-template-columns:.6fr 1.6fr .8fr .9fr .9fr}
+.tablehead.cols6,.trow.cols6{grid-template-columns:.5fr 1.6fr .8fr .8fr .8fr .8fr}
+
 @media (max-width:1080px){
   .shell{grid-template-columns:1fr}
   .mapwrap{min-height:420px}
   .dgrid2{grid-template-columns:1fr}
+  .filterbar{flex-direction:column;align-items:stretch}
 }

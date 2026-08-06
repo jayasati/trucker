@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Spotter · Fuel Price Analytics{% endblock %}
+
+{% block content %}
+<div class="dash">
+  <main class="dmain">
+
+    <div class="dhead">
+      <div>
+        <h1>Fuel Price Analytics</h1>
+        <p>The complete state and network breakdown behind the Dashboard's summary &mdash; every state, every brand</p>
+      </div>
+    </div>
+
+    <section class="card">
+      <div>
+        <h2>Price percentiles</h2>
+        <p>Across every tracked station, nationwide</p>
+      </div>
+      <div class="pctrow">
+        {% for p in percentiles %}
+        <div><span>{{ p.label }}</span><b>${{ p.price|floatformat:2 }}</b></div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <div class="dgrid2" style="align-items:start">
+      <section class="card flush">
+        <div class="cardhead-row">
+          <div>
+            <h2>Price by state</h2>
+            <p>Every state / province with a tracked station, cheapest average first</p>
+          </div>
+        </div>
+        <div class="tablehead cols6">
+          <span>#</span><span>State</span><span>Stations</span><span>Avg</span><span>Min</span><span>Max</span>
+        </div>
+        <div>
+          {% for s in state_breakdown %}
+          <div class="trow cols6">
+            <span class="tnum">{{ forloop.counter }}</span>
+            <div class="lane"><b>{{ s.state }}</b></div>
+            <span class="tnum">{{ s.count }}</span>
+            <span class="topt">${{ s.avg_price|floatformat:2 }}</span>
+            <span class="tnum">${{ s.min_price|floatformat:2 }}</span>
+            <span class="tnum">${{ s.max_price|floatformat:2 }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="card flush">
+        <div class="cardhead-row">
+          <div>
+            <h2>Price by network</h2>
+            <p>Every recognized brand, busiest first</p>
+          </div>
+        </div>
+        <div class="tablehead cols6">
+          <span>#</span><span>Network</span><span>Stations</span><span>Avg</span><span>Min</span><span>Max</span>
+        </div>
+        <div>
+          {% for b in brand_breakdown %}
+          <div class="trow cols6">
+            <span class="tnum">{{ forloop.counter }}</span>
+            <div class="lane"><b>{{ b.brand }}</b></div>
+            <span class="tnum">{{ b.count }}</span>
+            <span class="topt">${{ b.avg_price|floatformat:2 }}</span>
+            <span class="tnum">${{ b.min_price|floatformat:2 }}</span>
+            <span class="tnum">${{ b.max_price|floatformat:2 }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+{% endblock %}

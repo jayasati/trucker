@@ -3,19 +3,27 @@ import time
 
 from django.conf import settings
 from django.core.cache import cache
-from django.views.generic import TemplateView
+from django.db.models import Count
+from django.views.generic import ListView, TemplateView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from routing.models import FuelStation
 from routing.serializers import RouteRequestSerializer
+from routing.services.analytics_stats import (
+    compute_full_brand_breakdown,
+    compute_full_state_breakdown,
+    compute_percentiles,
+)
 from routing.services.dashboard_stats import compute_dashboard_stats
 from routing.services.geocode import GeocodeNotFoundError, GeocodeServiceError
 from routing.services.optimizer import NoReachableStationError
 from routing.services.osrm import OSRMError
 from routing.services.route_planner import RoutePlan, plan_route
+from routing.services.station_directory import DEFAULT_SORT, filter_stations
 from routing.spatial_index import SpatialIndex
 
-DASHBOARD_STATS_CACHE_TTL_SECONDS = 300
+STATS_CACHE_TTL_SECONDS = 300
 
 
 class RoutePlannerPageView(TemplateView):
@@ -47,7 +55,80 @@ class DashboardPageView(TemplateView):
         stats = cache.get(cache_key)
         if stats is None:
             stats = compute_dashboard_stats()
-            cache.set(cache_key, stats, timeout=DASHBOARD_STATS_CACHE_TTL_SECONDS)
+            cache.set(cache_key, stats, timeout=STATS_CACHE_TTL_SECONDS)
+        return stats
+
+
+class FuelDirectoryPageView(ListView):
+    """Searchable/filterable/sortable browse view over every tracked station."""
+
+    model = FuelStation
+    template_name = "fuel.html"
+    context_object_name = "stations"
+    paginate_by = 50
+
+    def get_queryset(self):
+        params = self.request.GET
+        return filter_stations(
+            FuelStation.objects.all(),
+            query=params.get("q", ""),
+            state=params.get("state", ""),
+            min_price=params.get("min_price"),
+            max_price=params.get("max_price"),
+            sort=params.get("sort", DEFAULT_SORT),
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["active_tab"] = "fuel"
+        context["query"] = self.request.GET.get("q", "")
+        context["selected_state"] = self.request.GET.get("state", "").strip().upper()
+        context["min_price"] = self.request.GET.get("min_price", "")
+        context["max_price"] = self.request.GET.get("max_price", "")
+        context["sort"] = self.request.GET.get("sort", DEFAULT_SORT)
+        context["states"] = self._state_options()
+
+        params = self.request.GET.copy()
+        params.pop("page", None)
+        context["querystring"] = params.urlencode()
+        return context
+
+    @staticmethod
+    def _state_options():
+        if not SpatialIndex.is_loaded():
+            SpatialIndex.load()
+        cache_key = f"fuel_directory_states:v{SpatialIndex.price_version}"
+        options = cache.get(cache_key)
+        if options is None:
+            options = list(FuelStation.objects.values("state").annotate(n=Count("id")).order_by("state"))
+            cache.set(cache_key, options, timeout=STATS_CACHE_TTL_SECONDS)
+        return options
+
+
+class AnalyticsPageView(TemplateView):
+    """Full (non-truncated) state/brand breakdowns and price percentiles."""
+
+    template_name = "analytics.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["active_tab"] = "analytics"
+        context.update(self._get_stats())
+        return context
+
+    @staticmethod
+    def _get_stats():
+        if not SpatialIndex.is_loaded():
+            SpatialIndex.load()
+        cache_key = f"analytics_stats:v{SpatialIndex.price_version}"
+        stats = cache.get(cache_key)
+        if stats is None:
+            stats = {
+                "percentiles": compute_percentiles(),
+                "state_breakdown": compute_full_state_breakdown(),
+                "brand_breakdown": compute_full_brand_breakdown(),
+            }
+            cache.set(cache_key, stats, timeout=STATS_CACHE_TTL_SECONDS)
         return stats
 
 

@@ -20,10 +20,8 @@
   <nav class="tabs">
     <a href="{% url 'dashboard' %}" class="{% if active_tab == 'dashboard' %}on{% endif %}">Dashboard</a>
     <a href="{% url 'route-planner' %}" class="{% if active_tab == 'routes' %}on{% endif %}">Routes</a>
-    <a href="#" class="tab-inert" title="Not part of this build">Drivers</a>
-    <a href="#" class="tab-inert" title="Not part of this build">Fuel</a>
-    <a href="#" class="tab-inert" title="Not part of this build">Analytics</a>
-    <a href="#" class="tab-inert" title="Not part of this build">Settings</a>
+    <a href="{% url 'fuel-directory' %}" class="{% if active_tab == 'fuel' %}on{% endif %}">Fuel</a>
+    <a href="{% url 'analytics' %}" class="{% if active_tab == 'analytics' %}on{% endif %}">Analytics</a>
   </nav>
   <div class="navr">
     <div class="avatar">DR</div>
