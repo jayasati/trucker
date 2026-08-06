@@ -17,19 +17,21 @@
     </div>
 
     <form class="form" id="planForm">
-      <div>
+      <div class="fieldwrap">
         <label class="lbl" for="start">Start</label>
         <div class="field">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2ec4c9" stroke-width="2"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/></svg>
           <input id="start" name="start" value="New York, NY" autocomplete="off" required>
         </div>
+        <ul class="suggest hidden" id="startSuggest"></ul>
       </div>
-      <div>
+      <div class="fieldwrap">
         <label class="lbl" for="finish">Destination</label>
         <div class="field">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2ec4c9" stroke-width="2"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
           <input id="finish" name="finish" value="Los Angeles, CA" autocomplete="off" required>
         </div>
+        <ul class="suggest hidden" id="finishSuggest"></ul>
       </div>
       <button class="plan" id="planBtn" type="submit">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.3L19 9l-5.1 1.7L12 16l-1.9-5.3L5 9l5.1-1.7z"/></svg>

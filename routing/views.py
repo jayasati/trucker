@@ -19,6 +19,7 @@ from routing.services.dashboard_stats import compute_dashboard_stats
 from routing.services.geocode import GeocodeNotFoundError, GeocodeServiceError
 from routing.services.optimizer import NoReachableStationError
 from routing.services.osrm import OSRMError
+from routing.services.place_search import search_places
 from routing.services.route_planner import RoutePlan, plan_route
 from routing.services.station_directory import DEFAULT_SORT, filter_stations
 from routing.spatial_index import SpatialIndex
@@ -173,6 +174,22 @@ def _serialize_plan(plan: RoutePlan) -> dict:
     if plan.estimated_trip_cost is not None:
         payload["estimated_trip_cost"] = round(plan.estimated_trip_cost, 2)
     return payload
+
+
+class PlaceSuggestView(APIView):
+    """GET /api/places/?q=... — offline city-name autocomplete, zero external calls."""
+
+    def get(self, request):
+        query = request.query_params.get("q", "")
+        results = search_places(query)
+        return Response(
+            {
+                "results": [
+                    {"label": s.label, "lat": s.latitude, "lng": s.longitude} for s in results
+                ]
+            },
+            status=200,
+        )
 
 
 class RouteView(APIView):

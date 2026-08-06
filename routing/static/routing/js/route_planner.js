@@ -2,6 +2,7 @@
   "use strict";
 
   var API_URL = "/api/route/";
+  var PLACES_URL = "/api/places/";
 
   var ICONS = {
     warn: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f0b755" stroke-width="1.9" stroke-linecap="round"><path d="M12 3l9.5 16.5h-19z"/><path d="M12 10v4M12 17.2v.1"/></svg>',
@@ -10,6 +11,7 @@
 
   var el = {};
   ["planForm", "start", "finish", "planBtn", "planTxt",
+   "startSuggest", "finishSuggest",
    "stateIdle", "stateLoading", "stateError", "stateResult",
    "errTitle", "errBody", "errWhy", "errIconWrap",
    "sumDistance", "sumCost", "sumStops", "sumAvg", "listMeta", "stopList",
@@ -27,6 +29,98 @@
 
   function fmtMoney(n) { return "$" + Number(n).toFixed(2); }
   function fmtMiles(n) { return Number(n).toLocaleString(undefined, { maximumFractionDigits: 1 }) + " mi"; }
+
+  function debounce(fn, delay) {
+    var timer = null;
+    return function () {
+      var args = arguments, ctx = this;
+      clearTimeout(timer);
+      timer = setTimeout(function () { fn.apply(ctx, args); }, delay);
+    };
+  }
+
+  function setupAutocomplete(input, listEl) {
+    var activeIndex = -1;
+    var currentResults = [];
+    var requestToken = 0;
+
+    function hide() {
+      listEl.classList.add("hidden");
+      listEl.innerHTML = "";
+      activeIndex = -1;
+      currentResults = [];
+    }
+
+    function renderResults(results) {
+      currentResults = results;
+      activeIndex = -1;
+      if (!results.length) { hide(); return; }
+      listEl.innerHTML = results.map(function (r, i) {
+        return '<li data-i="' + i + '">' + escapeHtml(r.label) + '</li>';
+      }).join('');
+      listEl.classList.remove("hidden");
+    }
+
+    function highlight(index) {
+      var items = listEl.querySelectorAll("li");
+      items.forEach(function (li, i) { li.classList.toggle("active", i === index); });
+      if (items[index]) { items[index].scrollIntoView({ block: "nearest" }); }
+      activeIndex = index;
+    }
+
+    function selectIndex(index) {
+      var result = currentResults[index];
+      if (!result) { return; }
+      input.value = result.label;
+      hide();
+    }
+
+    var fetchSuggestions = debounce(function () {
+      var query = input.value.trim();
+      if (query.length < 2) { hide(); return; }
+      var token = ++requestToken;
+      fetch(PLACES_URL + "?q=" + encodeURIComponent(query))
+        .then(function (res) { return res.json(); })
+        .then(function (body) {
+          if (token !== requestToken) { return; } // a newer request has since been issued
+          renderResults((body && body.results) || []);
+        })
+        .catch(function () { /* suggestions are non-critical; fail silently */ });
+    }, 150);
+
+    input.addEventListener("input", fetchSuggestions);
+
+    input.addEventListener("keydown", function (event) {
+      if (listEl.classList.contains("hidden") || !currentResults.length) { return; }
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        highlight(Math.min(activeIndex + 1, currentResults.length - 1));
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        highlight(Math.max(activeIndex - 1, 0));
+      } else if (event.key === "Enter") {
+        if (activeIndex >= 0) {
+          event.preventDefault();
+          selectIndex(activeIndex);
+        }
+      } else if (event.key === "Escape") {
+        hide();
+      }
+    });
+
+    // mousedown (not click) + preventDefault: keeps focus on the input so it
+    // never blurs before the click is handled, no timing workaround needed.
+    listEl.addEventListener("mousedown", function (event) {
+      var li = event.target.closest("li");
+      if (!li) { return; }
+      event.preventDefault();
+      selectIndex(Number(li.dataset.i));
+    });
+
+    input.addEventListener("blur", function () {
+      setTimeout(hide, 100);
+    });
+  }
 
   function initMap() {
     map = L.map("map", { zoomControl: false, attributionControl: true, scrollWheelZoom: true }).setView([39.5, -98.35], 4);
@@ -259,6 +353,8 @@
   }
 
   el.planForm.addEventListener("submit", planRoute);
+  setupAutocomplete(el.start, el.startSuggest);
+  setupAutocomplete(el.finish, el.finishSuggest);
 
   initMap();
   setState("Idle");
