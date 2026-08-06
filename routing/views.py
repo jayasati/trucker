@@ -8,11 +8,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from routing.serializers import RouteRequestSerializer
+from routing.services.dashboard_stats import compute_dashboard_stats
 from routing.services.geocode import GeocodeNotFoundError, GeocodeServiceError
 from routing.services.optimizer import NoReachableStationError
 from routing.services.osrm import OSRMError
 from routing.services.route_planner import RoutePlan, plan_route
 from routing.spatial_index import SpatialIndex
+
+DASHBOARD_STATS_CACHE_TTL_SECONDS = 300
 
 
 class RoutePlannerPageView(TemplateView):
@@ -33,7 +36,19 @@ class DashboardPageView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["active_tab"] = "dashboard"
+        context["stats"] = self._get_stats()
         return context
+
+    @staticmethod
+    def _get_stats():
+        if not SpatialIndex.is_loaded():
+            SpatialIndex.load()
+        cache_key = f"dashboard_stats:v{SpatialIndex.price_version}"
+        stats = cache.get(cache_key)
+        if stats is None:
+            stats = compute_dashboard_stats()
+            cache.set(cache_key, stats, timeout=DASHBOARD_STATS_CACHE_TTL_SECONDS)
+        return stats
 
 
 def _cache_key(start: str, finish: str, price_version: int) -> str:

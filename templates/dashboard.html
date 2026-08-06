@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Spotter · Fuel Cost Overview{% endblock %}
+{% block title %}Spotter · Fuel Price Overview{% endblock %}
 
 {% block content %}
 <div class="dash">
@@ -8,61 +8,45 @@
 
     <div class="dhead">
       <div>
-        <h1>Fuel Cost Overview</h1>
-        <p>Fleet-wide spend, savings and plan adherence · updated 4 minutes ago</p>
+        <h1>Fuel Price Overview</h1>
+        <p>Real aggregates computed from the {{ stats.total_stations }} tracked stations in the loaded fuel-price dataset</p>
       </div>
       <div class="dactions">
-        <div class="segctl" id="periodToggle">
-          <button type="button" class="on" data-period="mtd">MTD</button>
-          <button type="button" data-period="qtd">QTD</button>
-          <button type="button" data-period="ytd">YTD</button>
-        </div>
-        <button type="button" class="btn-ghost">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
-          Export
-        </button>
-        <button type="button" class="btn-solid">
+        <a href="{% url 'route-planner' %}" class="btn-solid">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.3L19 9l-5.1 1.7L12 16l-1.9-5.3L5 9l5.1-1.7z"/></svg>
-          Run optimizer
-        </button>
+          Plan a route
+        </a>
       </div>
     </div>
 
     <div class="stats">
       <div class="stat">
-        <span class="lbl2">Fuel spend · MTD</span>
-        <span class="val">$1,284,610</span>
-        <div class="delta"><span class="up">&#9660; 6.4%</span><span class="foot">vs. last month</span></div>
-        <div class="track"><i style="width:71%"></i></div>
-        <span class="sub">71% of $1.81M monthly budget</span>
+        <span class="lbl2">Stations tracked</span>
+        <span class="val">{{ stats.total_stations }}</span>
+        <span class="sub">across {{ stats.distinct_states }} states / provinces</span>
       </div>
       <div class="stat">
-        <span class="lbl2">Savings captured</span>
-        <span class="val" style="color:var(--teal)">$148,320</span>
-        <div class="delta"><span class="up">&#9650; $22.1K</span><span class="foot">vs. last month</span></div>
-        <div class="track"><i style="width:88%;background:var(--green)"></i></div>
-        <span class="sub">88% of $168K quarterly target</span>
+        <span class="lbl2">Avg. price</span>
+        <span class="val">${{ stats.avg_price|floatformat:2 }}<small>/gal</small></span>
+        <span class="sub">median ${{ stats.median_price|floatformat:2 }}/gal</span>
       </div>
       <div class="stat">
-        <span class="lbl2">Avg. price paid</span>
-        <span class="val">$3.31<small>/gal</small></span>
-        <div class="delta"><span class="up">&#9660; $0.27</span><span class="foot">below DOE retail avg.</span></div>
-        <div class="track"><i style="width:59%"></i></div>
-        <span class="sub">388,100 gal purchased this month</span>
+        <span class="lbl2">Price range</span>
+        <span class="val">${{ stats.min_price|floatformat:2 }}&ndash;{{ stats.max_price|floatformat:2 }}</span>
+        <span class="sub">low to high across all tracked stations</span>
       </div>
       <div class="stat">
-        <span class="lbl2">Plan adherence</span>
-        <span class="val">87.4%</span>
-        <div class="delta"><span class="down">&#9660; 2.1 pts</span><span class="foot">52 off-plan stops</span></div>
-        <div class="track"><i style="width:87%;background:var(--amber)"></i></div>
-        <span class="sub">Target 92% · $31K leakage</span>
+        <span class="lbl2">Geocode precision</span>
+        <span class="val">{{ stats.city_geocoded_pct|floatformat:1 }}<small>%</small></span>
+        <div class="track"><i style="width:{{ stats.city_geocoded_pct|floatformat:0 }}%"></i></div>
+        <span class="sub">{{ stats.state_centroid_geocoded }} of {{ stats.total_stations }} fell back to a state centroid</span>
       </div>
       <div class="stat">
-        <span class="lbl2">Fleet efficiency</span>
-        <span class="val">7.12<small> mpg</small></span>
-        <div class="delta"><span class="up">&#9650; 0.18</span><span class="foot">idle 11.4% of engine hrs</span></div>
-        <div class="track"><i style="width:64%"></i></div>
-        <span class="sub">412 of 468 trucks reporting</span>
+        {% with top=stats.top_brands.0 %}
+        <span class="lbl2">Largest network</span>
+        <span class="val" style="color:var(--teal)">{{ top.brand }}</span>
+        <span class="sub">{{ top.count }} stations · avg ${{ top.avg_price|floatformat:2 }}/gal</span>
+        {% endwith %}
       </div>
     </div>
 
@@ -70,102 +54,34 @@
       <section class="card">
         <div class="chead">
           <div>
-            <h2>Spend vs. unoptimized baseline</h2>
-            <p>What the fleet paid against retail-rack pricing on the same lanes</p>
-          </div>
-          <div class="chartlegend">
-            <span><span class="swatch"></span>Actual spend</span>
-            <span><span class="swatch line"></span>Baseline</span>
+            <h2>Price distribution</h2>
+            <p>Every tracked station bucketed by price per gallon</p>
           </div>
         </div>
-
-        <div style="position:relative;width:100%">
-          <svg viewBox="0 0 780 250" width="100%" style="display:block;overflow:visible">
-            <g stroke="#16283a" stroke-width="1">
-              <line x1="46" y1="20" x2="780" y2="20"/>
-              <line x1="46" y1="72" x2="780" y2="72"/>
-              <line x1="46" y1="124" x2="780" y2="124"/>
-              <line x1="46" y1="176" x2="780" y2="176"/>
-              <line x1="46" y1="228" x2="780" y2="228"/>
-            </g>
-            <g fill="#63798b" font-size="11" font-family="Manrope,sans-serif" font-weight="600" text-anchor="end">
-              <text x="36" y="24">$400K</text>
-              <text x="36" y="76">$300K</text>
-              <text x="36" y="128">$200K</text>
-              <text x="36" y="180">$100K</text>
-              <text x="36" y="232">$0</text>
-            </g>
-            <g fill="#2ec4c9" opacity="0.85">
-              <rect x="68.5" y="88.6" width="35" height="139.4" rx="4"/>
-              <rect x="128.2" y="76.7" width="35" height="151.3" rx="4"/>
-              <rect x="187.9" y="69.4" width="35" height="158.6" rx="4"/>
-              <rect x="247.5" y="81.4" width="35" height="146.6" rx="4"/>
-              <rect x="307.2" y="64.7" width="35" height="163.3" rx="4"/>
-              <rect x="366.9" y="56.4" width="35" height="171.6" rx="4"/>
-              <rect x="426.5" y="73" width="35" height="155" rx="4"/>
-              <rect x="486.2" y="60.6" width="35" height="167.4" rx="4"/>
-              <rect x="545.9" y="50.7" width="35" height="177.3" rx="4"/>
-              <rect x="605.5" y="62.6" width="35" height="165.4" rx="4"/>
-              <rect x="665.2" y="53.3" width="35" height="174.7" rx="4"/>
-              <rect x="724.9" y="45" width="35" height="183" rx="4"/>
-            </g>
-            <polyline points="86,71.9 145.5,58.5 205.2,50.4 264.8,63.8 324.5,45.1 384.2,35.8 443.8,54.4 503.5,40.5 563.2,29.4 622.8,42.8 682.5,32.3 742.2,23" fill="none" stroke="#f0b755" stroke-width="2" stroke-linejoin="round" stroke-dasharray="5 4"/>
-            <g fill="#63798b" font-size="10.5" font-family="Manrope,sans-serif" font-weight="600" text-anchor="middle">
-              <text x="86" y="246">Jun 2</text>
-              <text x="145.5" y="246">Jun 9</text>
-              <text x="205.2" y="246">Jun 16</text>
-              <text x="264.8" y="246">Jun 23</text>
-              <text x="324.5" y="246">Jun 30</text>
-              <text x="384.2" y="246">Jul 7</text>
-              <text x="443.8" y="246">Jul 14</text>
-              <text x="503.5" y="246">Jul 21</text>
-              <text x="563.2" y="246">Jul 28</text>
-              <text x="622.8" y="246">Aug 4</text>
-              <text x="682.5" y="246">Aug 11</text>
-              <text x="742.2" y="246">Aug 18</text>
-            </g>
-          </svg>
-        </div>
-
-        <div class="tri">
-          <div><span>Avoided cost, period</span><span>$421,880</span></div>
-          <div><span>Avg. discount vs. rack</span><span>$0.41/gal</span></div>
-          <div><span>Cost per mile</span><span>$0.581</span></div>
+        <div class="histchart">
+          {% for bucket in stats.price_histogram %}
+          <div class="histbar">
+            <span class="count">{{ bucket.count }}</span>
+            <div class="bar" style="height:{% widthratio bucket.count stats.price_histogram_max 100 %}%"></div>
+            <span class="label">{{ bucket.label }}</span>
+          </div>
+          {% endfor %}
         </div>
       </section>
 
       <section class="card">
         <div>
-          <h2>Where savings came from</h2>
-          <p>Month to date · $148,320 total</p>
+          <h2>Top networks</h2>
+          <p>By number of tracked stations</p>
         </div>
-        <div class="donutwrap">
-          <div class="donut">
-            <svg width="132" height="132" viewBox="0 0 132 132" style="transform:rotate(-90deg)">
-              <circle cx="66" cy="66" r="52" fill="none" stroke="#152736" stroke-width="17"/>
-              <circle cx="66" cy="66" r="52" fill="none" stroke="#2ec4c9" stroke-width="17" stroke-dasharray="134 193"/>
-              <circle cx="66" cy="66" r="52" fill="none" stroke="#4a9fd8" stroke-width="17" stroke-dasharray="98 229" stroke-dashoffset="-136"/>
-              <circle cx="66" cy="66" r="52" fill="none" stroke="#7b6ee0" stroke-width="17" stroke-dasharray="59 268" stroke-dashoffset="-236"/>
-              <circle cx="66" cy="66" r="52" fill="none" stroke="#3ddc97" stroke-width="17" stroke-dasharray="34 293" stroke-dashoffset="-297"/>
-            </svg>
-            <div class="donutmid"><b>11.6%</b><span>of spend</span></div>
+        <div class="barlist">
+          {% for brand in stats.top_brands %}
+          <div class="barrow2">
+            <span class="name">{{ brand.brand }}</span>
+            <div class="track"><i style="width:{% widthratio brand.count stats.top_brands.0.count 100 %}%"></i></div>
+            <span class="amt">{{ brand.count }}</span>
           </div>
-          <div class="legend2">
-            <div class="row"><span class="dot" style="background:#2ec4c9"></span><span class="name">Network discounts</span><span class="amt">$61,400</span></div>
-            <div class="row"><span class="dot" style="background:#4a9fd8"></span><span class="name">Stop selection</span><span class="amt">$44,700</span></div>
-            <div class="row"><span class="dot" style="background:#7b6ee0"></span><span class="name">State tax arbitrage</span><span class="amt">$27,300</span></div>
-            <div class="row"><span class="dot" style="background:#3ddc97"></span><span class="name">Idle &amp; MPG coaching</span><span class="amt">$14,920</span></div>
-          </div>
-        </div>
-        <div class="rule"></div>
-        <div>
-          <span class="lbl2" style="display:block;margin-bottom:12px">Top networks by volume</span>
-          <div class="barlist">
-            <div class="barrow2"><span class="name">Pilot Flying J</span><div class="track"><i style="width:78%"></i></div><span class="amt">142K gal</span></div>
-            <div class="barrow2"><span class="name">Love's</span><div class="track"><i style="width:61%"></i></div><span class="amt">111K gal</span></div>
-            <div class="barrow2"><span class="name">TA / Petro</span><div class="track"><i style="width:44%"></i></div><span class="amt">79K gal</span></div>
-            <div class="barrow2"><span class="name">Off-network</span><div class="track"><i class="off" style="width:16%"></i></div><span class="amt">28K gal</span></div>
-          </div>
+          {% endfor %}
         </div>
       </section>
     </div>
@@ -174,95 +90,52 @@
       <section class="card flush">
         <div class="cardhead-row">
           <div>
-            <h2>Optimization opportunities</h2>
-            <p>Lanes where re-planned stops beat current purchasing</p>
+            <h2>Cheapest stations nationwide</h2>
+            <p>Lowest price per gallon across every tracked station</p>
           </div>
-          <span class="viewall">View all 34 lanes &rarr;</span>
         </div>
-        <div class="tablehead">
-          <span>Lane</span><span>Loads/wk</span><span>Now $/mi</span><span>Optimized</span><span>Weekly savings</span><span>Action</span>
+        <div class="tablehead cols3">
+          <span>Station</span><span>Location</span><span>Price</span>
         </div>
         <div>
-          <div class="trow">
-            <div class="lane"><b>Chicago, IL &rarr; Dallas, TX</b><span>I-55 · I-44 · 968 mi</span></div>
-            <span class="tnum">42</span><span class="tnum">$0.612</span><span class="topt">$0.548</span><span class="tsave">+$8,240</span>
-            <span class="tact">Apply</span>
+          {% for s in stats.cheapest_stations %}
+          <div class="trow cols3">
+            <div class="lane"><b>{{ s.name }}</b></div>
+            <span class="tnum">{{ s.city }}, {{ s.state }}</span>
+            <span class="topt">${{ s.price|floatformat:3 }}</span>
           </div>
-          <div class="trow">
-            <div class="lane"><b>Atlanta, GA &rarr; Newark, NJ</b><span>I-85 · I-95 · 872 mi</span></div>
-            <span class="tnum">31</span><span class="tnum">$0.588</span><span class="topt">$0.531</span><span class="tsave">+$6,110</span>
-            <span class="tact">Apply</span>
-          </div>
-          <div class="trow">
-            <div class="lane"><b>Los Angeles, CA &rarr; Phoenix, AZ</b><span>I-10 · 372 mi</span></div>
-            <span class="tnum">55</span><span class="tnum">$0.641</span><span class="topt">$0.602</span><span class="tsave">+$4,780</span>
-            <span class="tact">Apply</span>
-          </div>
-          <div class="trow">
-            <div class="lane"><b>Denver, CO &rarr; Salt Lake City, UT</b><span>I-80 · 525 mi</span></div>
-            <span class="tnum">24</span><span class="tnum">$0.674</span><span class="topt">$0.615</span><span class="tsave">+$3,950</span>
-            <span class="tact">Apply</span>
-          </div>
-          <div class="trow">
-            <div class="lane"><b>Memphis, TN &rarr; Houston, TX</b><span>I-40 · US-59 · 587 mi</span></div>
-            <span class="tnum">28</span><span class="tnum">$0.596</span><span class="topt">$0.559</span><span class="tsave">+$3,120</span>
-            <span class="tact">Apply</span>
-          </div>
+          {% endfor %}
         </div>
       </section>
 
       <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
         <section class="card">
           <div class="chead">
-            <h2>Exceptions</h2>
-            <span class="pill-count">4 open</span>
+            <h2>Cheapest states</h2>
+            <span style="font-size:12px;font-weight:700;color:var(--mut2)">min. 20 stations</span>
           </div>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <div class="excrow e-red">
-              <div class="exctext"><b>Off-network purchase</b><span>Truck 4412 · Barstow, CA · 118 gal at $4.09 — $78.20 over plan</span></div>
-              <span class="exctime">14m</span>
+          <div class="statelist">
+            {% for s in stats.cheapest_states %}
+            <div class="staterow">
+              <span class="sname"><span class="srank">{{ forloop.counter }}</span>{{ s.state }} <span class="sn">· {{ s.count }} stations</span></span>
+              <b>${{ s.avg_price|floatformat:2 }}</b>
             </div>
-            <div class="excrow e-amber">
-              <div class="exctext"><b>Price spike detected</b><span>I-80 corridor, NE — rack up $0.19/gal in 24h · 23 loads affected</span></div>
-              <span class="exctime">1h</span>
-            </div>
-            <div class="excrow e-amber">
-              <div class="exctext"><b>Plan deviation</b><span>Load #88214 skipped Stop 3 (Columbus, OH) · est. &minus;$62</span></div>
-              <span class="exctime">3h</span>
-            </div>
-            <div class="excrow e-blue">
-              <div class="exctext"><b>Card declined</b><span>M. Ortega · Love's #612, Effingham IL · limit exceeded</span></div>
-              <span class="exctime">3h</span>
-            </div>
+            {% endfor %}
           </div>
         </section>
 
         <section class="card">
           <div class="chead">
-            <h2>Driver adherence</h2>
-            <span style="font-size:12px;font-weight:700;color:var(--mut2)">Last 30 days</span>
+            <h2>Priciest states</h2>
+            <span style="font-size:12px;font-weight:700;color:var(--mut2)">min. 20 stations</span>
           </div>
-          <div style="display:flex;flex-direction:column;gap:12px">
-            <div class="drow">
-              <span class="davatar ok">RK</span>
-              <div class="dbody"><div class="dtop"><span>R. Kaminski</span><b class="ok">99%</b></div><div class="dtrack"><i class="ok" style="width:99%"></i></div></div>
+          <div class="statelist">
+            {% for s in stats.priciest_states %}
+            <div class="staterow">
+              <span class="sname"><span class="srank">{{ forloop.counter }}</span>{{ s.state }} <span class="sn">· {{ s.count }} stations</span></span>
+              <b>${{ s.avg_price|floatformat:2 }}</b>
             </div>
-            <div class="drow">
-              <span class="davatar ok">DA</span>
-              <div class="dbody"><div class="dtop"><span>D. Achebe</span><b class="ok">96%</b></div><div class="dtrack"><i class="ok" style="width:96%"></i></div></div>
-            </div>
-            <div class="drow">
-              <span class="davatar warn">MO</span>
-              <div class="dbody"><div class="dtop"><span>M. Ortega</span><b class="warn">74%</b></div><div class="dtrack"><i class="warn" style="width:74%"></i></div></div>
-            </div>
-            <div class="drow">
-              <span class="davatar bad">TB</span>
-              <div class="dbody"><div class="dtop"><span>T. Brennan</span><b class="bad">61%</b></div><div class="dtrack"><i class="bad" style="width:61%"></i></div></div>
-            </div>
-          </div>
-          <div class="dfoot">
-            <span>17 drivers below 80% target</span>
-            <a href="#">Coach &rarr;</a>
+            {% endfor %}
           </div>
         </section>
       </div>
@@ -270,14 +143,4 @@
 
   </main>
 </div>
-{% endblock %}
-
-{% block extra_body %}
-<script>
-document.getElementById("periodToggle").addEventListener("click", function (e) {
-  var btn = e.target.closest("button");
-  if (!btn) return;
-  this.querySelectorAll("button").forEach(function (b) { b.classList.toggle("on", b === btn); });
-});
-</script>
 {% endblock %}
