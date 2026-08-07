@@ -13,7 +13,7 @@ best price you'll see for a while — so fill up completely. This is a
 textbook greedy-exchange argument: any schedule that deviates from these two
 rules can be transformed into one that follows them without increasing cost.
 
-Two refinements on top of the textbook version:
+Three refinements on top of the textbook version:
   1. Stations are ranked by *effective* cost (price inflated by the fuel
      burned on the round-trip detour off the highway), not sticker price, so
      a cheap-but-far station can correctly lose to a pricier-but-closer one.
@@ -21,6 +21,11 @@ Two refinements on top of the textbook version:
      once the destination is reachable on the current tank, we buy only the
      exact remainder needed and stop — never top off fuel that will never be
      used.
+  3. The tank starts *empty*, not full. There's no fuel price defined at the
+     origin itself, so the truck can't price-shop before its first fill: it
+     fuels up at the nearest station to the origin (whatever that costs),
+     then applies the same cheaper-ahead-or-fill-full rule from there onward.
+     That first purchase is a real, charged stop — not a free starting tank.
 """
 
 from __future__ import annotations
@@ -82,7 +87,6 @@ class OptimizerResult:
     total_distance_miles: float
     total_fuel_cost: float
     fuel_stops: list[FuelStop]
-    estimated_trip_cost: float | None
 
 
 def effective_cost(price: float, detour_miles: float, mpg: float) -> float:
@@ -119,23 +123,23 @@ def plan_fuel_stops(
     """Compute the cheapest sequence of fuel stops covering the trip.
 
     `candidates` are stations already matched to the route corridor (see
-    corridor.py), each with a mile-marker and a one-way detour distance.
+    corridor.py), each with a mile-marker and a one-way detour distance. The
+    tank starts empty: the first fuel purchase happens at the station nearest
+    the origin (that's reachable at all — see NoReachableStationError below),
+    and every purchase after that follows the cheaper-ahead-or-fill-full rule.
     """
-    if total_distance_miles <= tank_range_miles + DISTANCE_EPSILON:
-        cheapest = min(candidates, key=lambda c: effective_cost(c.price, c.detour_miles, mpg), default=None)
-        estimated_trip_cost = (total_distance_miles / mpg) * cheapest.price if cheapest else None
-        return OptimizerResult(
-            total_distance_miles=total_distance_miles,
-            total_fuel_cost=0.0,
-            fuel_stops=[],
-            estimated_trip_cost=estimated_trip_cost,
-        )
+    if total_distance_miles <= DISTANCE_EPSILON:
+        return OptimizerResult(total_distance_miles=total_distance_miles, total_fuel_cost=0.0, fuel_stops=[])
 
     sorted_candidates = sorted(candidates, key=lambda c: c.miles_from_start)
 
-    position = 0.0
-    range_remaining = tank_range_miles
-    current_station: StationCandidate | None = None
+    start_reachable = [c for c in sorted_candidates if c.miles_from_start + 2 * c.detour_miles <= tank_range_miles + DISTANCE_EPSILON]
+    if not start_reachable:
+        raise NoReachableStationError(0.0, total_distance_miles, tank_range_miles)
+    current_station: StationCandidate = start_reachable[0]  # nearest to the origin
+
+    position = current_station.miles_from_start
+    range_remaining = 0.0
     stops: list[FuelStop] = []
     total_cost = 0.0
 
@@ -155,13 +159,11 @@ def plan_fuel_stops(
         if not reachable and not can_finish_on_full_tank:
             raise NoReachableStationError(position, remaining_trip, tank_range_miles)
 
-        current_price = current_station.price if current_station is not None else None
-        cheaper_ahead = []
-        if current_price is not None:
-            cheaper_ahead = sorted(
-                (c for c in reachable if effective_cost(c.price, c.detour_miles, mpg) < current_price - PRICE_EPSILON),
-                key=lambda c: c.miles_from_start,
-            )
+        current_price = current_station.price
+        cheaper_ahead = sorted(
+            (c for c in reachable if effective_cost(c.price, c.detour_miles, mpg) < current_price - PRICE_EPSILON),
+            key=lambda c: c.miles_from_start,
+        )
 
         if cheaper_ahead:
             target = cheaper_ahead[0]
@@ -170,7 +172,7 @@ def plan_fuel_stops(
             gallons_have = range_remaining / mpg
             gallons_to_buy = max(0.0, gallons_needed - gallons_have)
 
-            if gallons_to_buy > DISTANCE_EPSILON and current_station is not None:
+            if gallons_to_buy > DISTANCE_EPSILON:
                 cost = gallons_to_buy * current_station.price
                 total_cost += cost
                 stops.append(_to_stop(current_station, gallons_to_buy, cost))
@@ -184,7 +186,7 @@ def plan_fuel_stops(
             gallons_have = range_remaining / mpg
             gallons_to_buy = max(0.0, gallons_needed - gallons_have)
 
-            if gallons_to_buy > DISTANCE_EPSILON and current_station is not None:
+            if gallons_to_buy > DISTANCE_EPSILON:
                 cost = gallons_to_buy * current_station.price
                 total_cost += cost
                 stops.append(_to_stop(current_station, gallons_to_buy, cost))
@@ -197,7 +199,7 @@ def plan_fuel_stops(
             target = min(reachable, key=lambda c: effective_cost(c.price, c.detour_miles, mpg))
             gallons_to_buy = max(0.0, (tank_range_miles - range_remaining) / mpg)
 
-            if gallons_to_buy > DISTANCE_EPSILON and current_station is not None:
+            if gallons_to_buy > DISTANCE_EPSILON:
                 cost = gallons_to_buy * current_station.price
                 total_cost += cost
                 stops.append(_to_stop(current_station, gallons_to_buy, cost))
@@ -207,9 +209,4 @@ def plan_fuel_stops(
             position = target.miles_from_start
             current_station = target
 
-    return OptimizerResult(
-        total_distance_miles=total_distance_miles,
-        total_fuel_cost=total_cost,
-        fuel_stops=stops,
-        estimated_trip_cost=None,
-    )
+    return OptimizerResult(total_distance_miles=total_distance_miles, total_fuel_cost=total_cost, fuel_stops=stops)

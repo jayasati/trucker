@@ -217,14 +217,10 @@
       el.sumCost.textContent = fmtMoney(data.total_fuel_cost);
       el.sumAvg.textContent = fmtMoney(data.total_fuel_cost / totalGallons);
       el.listMeta.textContent = totalGallons.toFixed(1) + ' gal · avg ' + fmtMoney(data.total_fuel_cost / totalGallons) + '/gal';
-    } else if (data.estimated_trip_cost !== undefined && data.estimated_trip_cost !== null) {
-      el.sumCost.textContent = '~' + fmtMoney(data.estimated_trip_cost);
-      el.sumAvg.textContent = '—';
-      el.listMeta.textContent = 'Fits in one tank — no stop needed';
     } else {
       el.sumCost.textContent = fmtMoney(0);
       el.sumAvg.textContent = '—';
-      el.listMeta.textContent = 'Fits in one tank — no stop needed';
+      el.listMeta.textContent = 'No fuel needed for this trip';
     }
 
     el.badgeRoute.innerHTML = escapeHtml(startLabel) + ' <b>&rarr;</b> ' + escapeHtml(finishLabel);

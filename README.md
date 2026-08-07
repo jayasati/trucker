@@ -136,7 +136,7 @@ of driving is best bought right now, at the best price available for a while —
 completely. This is a textbook greedy-exchange argument: any schedule that deviates from these two
 rules can be transformed into one that follows them without increasing cost.
 
-Two refinements on top of the textbook version:
+Three refinements on top of the textbook version:
 
 1. **Stations are ranked by *effective* cost**, not sticker price: `price + (2 × detour_miles /
    mpg) × price` — the cost of the fuel burned making the round trip off the highway and back. A
@@ -144,13 +144,15 @@ Two refinements on top of the textbook version:
 2. **The destination is a free, always-available target.** Once it's reachable on the current
    tank, the optimizer buys only the exact remainder needed and stops — it never tops off fuel
    that will never be used.
+3. **The tank starts empty, not full.** There's no fuel price defined at the origin itself, so
+   the truck can't price-shop before its first fill — it fuels up at the station nearest the
+   origin (whatever that costs), a real, charged stop, and applies the same cheaper-ahead-or-
+   fill-full rule from there on. Every trip with positive distance buys real fuel and gets at
+   least one stop; only a zero-distance trip (start == finish) needs none.
 
-Trips under 500 miles need no stops at all; the API still returns an `estimated_trip_cost` (miles
-÷ mpg × the cheapest price found along the corridor) so the field means something even when
-`total_fuel_cost` is `$0`.
-
-If a stretch of the route exceeds the tank range with no station in reach — on either side — the
-API returns `422` with the exact position and shortfall, rather than silently failing.
+If the nearest station to the origin is itself beyond one tank's reach, or if any stretch of the
+route exceeds the tank range with no station in reach on either side, the API returns `422` with
+the exact position and shortfall, rather than silently failing.
 
 ---
 
@@ -223,24 +225,36 @@ curl -X POST https://trucker-319172055462.us-east4.run.app/api/route/ \
 ```
 
 `start` / `finish` each accept either `"City, ST"` or a raw `"lat,lng"` coordinate pair (the
-latter skips geocoding entirely). Trips under the tank range need no stops — `total_fuel_cost` is
-`$0`, but `estimated_trip_cost` (miles ÷ mpg × the cheapest price along the corridor) is included
-so the field still means something:
+latter skips geocoding entirely). The tank starts empty, so even a trip that fits under the tank
+range buys real fuel at the nearest station and returns a real stop:
 
 ```json
 {
   "total_distance_miles": 78.1,
-  "total_fuel_cost": 0.0,
-  "fuel_stops": [],
+  "total_fuel_cost": 24.09,
+  "fuel_stops": [
+    {
+      "name": "PILOT #212",
+      "address": "I-94 Exit 306",
+      "city": "Milwaukee",
+      "state": "WI",
+      "price_per_gallon": 3.085,
+      "gallons": 7.81,
+      "cost": 24.09,
+      "miles_from_start": 3.4,
+      "detour_miles": 0.3,
+      "latitude": 43.061,
+      "longitude": -87.921
+    }
+  ],
   "route": { "type": "LineString", "coordinates": [[-87.909, 43.039], ...] },
   "price_version": 1,
-  "estimated_trip_cost": 26.27,
   "cached": false,
   "compute_ms": 2079.23
 }
 ```
 
-A longer trip returns one or more stops:
+A longer trip returns multiple stops:
 
 ```json
 {
@@ -320,8 +334,10 @@ curl "https://trucker-319172055462.us-east4.run.app/api/places/?q=ne"
 - **USA-scoped, with real cross-border data left in.** The source CSV includes ~620 stations in
   Canadian provinces (border-adjacent truck stops); these are geocoded via province centroid
   fallback rather than dropped.
-- **Tank starts full** at the trip origin — the initial fill is free/unmodeled, matching how a
-  driver would actually start a trip.
+- **Tank starts empty** at the trip origin. There's no fuel price defined at the origin itself, so
+  the truck fuels up at the station nearest the origin (a real, charged stop) before applying the
+  same cheaper-ahead-or-fill-full rule as every other stop. If that nearest station is itself
+  beyond one tank's reach, the API returns `422`.
 - **10 mpg and a 500-mile range are fixed constants** (configurable via `MPG` /
   `TANK_RANGE_MILES` env vars), not derived from vehicle data — there's no vehicle model in this
   system.
@@ -352,7 +368,7 @@ deployed on Google Cloud Run.
 pytest
 ```
 
-80 tests across dedupe/upsert idempotency, corridor matching, the optimizer (cheaper-ahead partial
-buy, fill-full, unreachable-gap failure, short-trip, detour-penalty tie-breaks), dashboard/
-analytics aggregation, station-directory filtering, and offline place search — all against
-synthetic data, no network calls, runs in about a second.
+81 tests across dedupe/upsert idempotency, corridor matching, the optimizer (empty-tank start,
+cheaper-ahead partial buy, fill-full, unreachable-gap failure, detour-penalty tie-breaks),
+dashboard/analytics aggregation, station-directory filtering, and offline place search — all
+against synthetic data, no network calls, runs in about a second.

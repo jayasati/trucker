@@ -38,12 +38,14 @@ Retail Price). Addresses are highway-exit style with NO coordinates.
 - Optimizer: provably-optimal greedy for the gas-station problem:
   at each station, if a CHEAPER station is within remaining 500-mile range,
   buy only enough fuel to reach it; otherwise FILL FULL and drive to the
-  cheapest station in range. Tank starts full. Rank stations by EFFECTIVE cost
-  including detour fuel: price + detour penalty (2 * detour_miles / 10 mpg * price).
-  Detour miles reduce usable range.
+  cheapest station in range. Tank starts EMPTY: the first purchase happens at
+  the station nearest the origin (that's reachable at all within one tank of
+  mile 0 — 422 if none is), then the same rule applies from there on. Rank
+  stations by EFFECTIVE cost including detour fuel: price + detour penalty
+  (2 * detour_miles / 10 mpg * price). Detour miles reduce usable range.
 - Fuel cost = sum(gallons bought at each stop * that stop's price), 10 mpg.
-  Trips under 500 miles: 0 stops, fuel_purchased = $0, but include
-  `estimated_trip_cost` at cheapest corridor price so the field is meaningful.
+  Every trip with positive distance buys real fuel and gets >=1 stop; only a
+  zero-distance trip (start == finish) needs none.
 
 ## API contract
 POST /api/route/  body: {"start": "...", "finish": "..."} — each value is

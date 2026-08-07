@@ -171,8 +171,6 @@ def _serialize_plan(plan: RoutePlan) -> dict:
         "route": _route_to_geojson(plan.route_geometry),
         "price_version": plan.price_version,
     }
-    if plan.estimated_trip_cost is not None:
-        payload["estimated_trip_cost"] = round(plan.estimated_trip_cost, 2)
     return payload
 
 
