@@ -155,6 +155,7 @@ def plan_fuel_stops(
     *,
     tank_range_miles: float,
     mpg: float,
+    min_purchase_gallons: float = 0.0,
 ) -> OptimizerResult:
     """Compute the cheapest sequence of fuel stops covering the trip.
 
@@ -165,6 +166,19 @@ def plan_fuel_stops(
     and every purchase after that follows the cheaper-ahead-or-fill-full rule,
     ranking detour stations by the blended-average-cost model in
     effective_cost() above.
+
+    `min_purchase_gallons` filters out stops that are technically cheaper but
+    not realistically worth pulling off for: a station only counts as
+    "cheaper ahead" if bridging to it means buying at least this many
+    gallons here (or literally nothing — coasting there for free on fuel
+    already in the tank is never skipped, since that's not an extra stop).
+    Without this, densely-packed stations near a city with only fractions of
+    a cent between them make the optimizer hop stop-to-stop buying a gallon
+    or two at a time, which is cheaper on paper but not how anyone actually
+    fuels a truck. When the nearest qualifying-cheaper station is skipped for
+    being too close, the next reachable-and-cheaper one is tried, and if none
+    qualify the tank is simply filled up (or topped off to finish the trip)
+    at the current station instead.
     """
     if total_distance_miles <= DISTANCE_EPSILON:
         return OptimizerResult(total_distance_miles=total_distance_miles, total_fuel_cost=0.0, fuel_stops=[])
@@ -221,17 +235,25 @@ def plan_fuel_stops(
             key=lambda c: c.miles_from_start,
         )
 
-        if cheaper_ahead:
-            target = cheaper_ahead[0]
-            distance_needed = (target.miles_from_start - position) + 2 * target.detour_miles
+        target = None
+        target_gallons_needed = 0.0
+        target_gallons_to_buy = 0.0
+        for candidate in cheaper_ahead:
+            distance_needed = (candidate.miles_from_start - position) + 2 * candidate.detour_miles
             gallons_needed = distance_needed / mpg
             gallons_to_buy = max(0.0, gallons_needed - gallons_in_tank)
+            if gallons_to_buy <= DISTANCE_EPSILON or gallons_to_buy >= min_purchase_gallons:
+                target = candidate
+                target_gallons_needed = gallons_needed
+                target_gallons_to_buy = gallons_to_buy
+                break
 
-            cost = buy(gallons_to_buy, current_price)
+        if target is not None:
+            cost = buy(target_gallons_to_buy, current_price)
             if cost:
-                stops.append(_to_stop(current_station, gallons_to_buy, cost))
+                stops.append(_to_stop(current_station, target_gallons_to_buy, cost))
 
-            gallons_in_tank -= gallons_needed
+            gallons_in_tank -= target_gallons_needed
             position = target.miles_from_start
             current_station = target
 

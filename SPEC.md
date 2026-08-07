@@ -52,6 +52,14 @@ Retail Price). Addresses are highway-exit style with NO coordinates.
 - Fuel cost = sum(gallons bought at each stop * that stop's price), 10 mpg.
   Every trip with positive distance buys real fuel and gets >=1 stop; only a
   zero-distance trip (start == finish) needs none.
+- MIN_PURCHASE_GALLONS (default 10, settings-configurable): a reachable
+  station only counts as "cheaper ahead" if bridging to it means buying at
+  least this many gallons here; otherwise skip it and try the next
+  reachable-and-cheaper one, falling through to fill-full/finish-here if
+  none qualify. Prevents hopping between densely-packed near-city stations
+  for a fraction of a gallon each. Exception: a free coast (0 gallons needed
+  to reach a cheaper station, already covered by fuel in tank) is never
+  blocked, since no purchase happens there at all.
 
 ## API contract
 POST /api/route/  body: {"start": "...", "finish": "..."} — each value is

@@ -32,6 +32,7 @@ def _plan(total_distance_miles, candidates, **kwargs):
         candidates,
         tank_range_miles=kwargs.get("tank_range_miles", TANK_RANGE_MILES),
         mpg=kwargs.get("mpg", MPG),
+        min_purchase_gallons=kwargs.get("min_purchase_gallons", 0.0),
     )
 
 
@@ -277,6 +278,66 @@ def test_gap_at_trip_start_raises_when_nothing_reachable_at_all():
 def test_no_stations_at_all_raises_when_trip_exceeds_tank_range():
     with pytest.raises(NoReachableStationError):
         _plan(600.0, [])
+
+
+# --- min_purchase_gallons: don't hop stop-to-stop for a splash of fuel -----
+
+
+def test_without_min_purchase_gallons_the_tiny_bridge_is_taken():
+    # Baseline (no minimum): the optimizer takes every marginally cheaper
+    # station it finds, however little fuel that means buying at the one
+    # before it -- the exact behavior min_purchase_gallons exists to curb.
+    station_a = _station(1, 4, price=3.40, name="A")
+    station_b = _station(2, 6, price=3.35, name="B")  # 2mi away: 0.2gal bridge
+    station_c = _station(3, 150, price=3.00, name="C")
+
+    result = _plan(150.0, [station_a, station_b, station_c])
+
+    assert len(result.fuel_stops) == 2
+    assert result.fuel_stops[0].station_id == 1
+    assert result.fuel_stops[0].gallons == pytest.approx(0.2)
+    assert result.fuel_stops[1].station_id == 2
+    assert result.fuel_stops[1].gallons == pytest.approx(14.4)
+
+
+def test_min_purchase_gallons_skips_a_station_too_close_to_be_worth_stopping():
+    # Same layout, but with a 10gal minimum: bridging to B would only need
+    # 0.2gal, so B is skipped entirely in favor of C (146mi away, 14.6gal --
+    # a real fill), bought directly from A.
+    station_a = _station(1, 4, price=3.40, name="A")
+    station_b = _station(2, 6, price=3.35, name="B")
+    station_c = _station(3, 150, price=3.00, name="C")
+
+    result = _plan(150.0, [station_a, station_b, station_c], min_purchase_gallons=10.0)
+
+    assert len(result.fuel_stops) == 1
+    stop = result.fuel_stops[0]
+    assert stop.station_id == 1
+    assert stop.gallons == pytest.approx(14.6)
+    assert stop.cost == pytest.approx(14.6 * 3.40)
+
+
+def test_min_purchase_gallons_never_skips_a_free_coast_to_a_cheaper_station():
+    # If there's already enough fuel in the tank to coast to a cheaper
+    # station for free, that's not "a stop" being made too small -- no
+    # purchase happens there at all, so the minimum never blocks the switch.
+    station_a = _station(1, 100, price=3.50, name="A")  # start: fills a full tank
+    station_x = _station(2, 160, price=3.55, name="X")  # 60mi away: the fill-full target
+    station_y = _station(3, 170, price=3.40, name="Y")  # 10mi past X, cheaper, reached for free
+
+    result = _plan(650.0, [station_a, station_x, station_y], min_purchase_gallons=10.0)
+
+    # X is passed through with a full tank's worth of leftover fuel -- no
+    # purchase happens there, so it never appears as a stop.
+    assert [stop.station_id for stop in result.fuel_stops] == [1, 3]
+
+    assert result.fuel_stops[0].gallons == pytest.approx(TANK_RANGE_MILES / MPG)
+    assert result.fuel_stops[0].cost == pytest.approx((TANK_RANGE_MILES / MPG) * 3.50)
+
+    # Finishes the trip from Y, at Y's (cheaper) price -- proving the free
+    # coast from X to Y actually happened.
+    assert result.fuel_stops[1].gallons == pytest.approx(5.0)
+    assert result.fuel_stops[1].price_per_gallon == pytest.approx(3.40)
 
 
 def test_no_stations_at_all_raises_even_for_a_short_trip():

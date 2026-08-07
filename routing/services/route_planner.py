@@ -46,6 +46,7 @@ def plan_route(start_query: str, finish_query: str) -> RoutePlan:
         candidates,
         tank_range_miles=settings.TANK_RANGE_MILES,
         mpg=settings.MPG,
+        min_purchase_gallons=settings.MIN_PURCHASE_GALLONS,
     )
 
     return RoutePlan(

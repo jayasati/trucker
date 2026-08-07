@@ -102,6 +102,7 @@ CACHES = {
 TANK_RANGE_MILES = env.float("TANK_RANGE_MILES", default=500.0)
 MPG = env.float("MPG", default=10.0)
 DETOUR_RADIUS_MILES = env.float("DETOUR_RADIUS_MILES", default=10.0)
+MIN_PURCHASE_GALLONS = env.float("MIN_PURCHASE_GALLONS", default=10.0)
 OSRM_BASE_URL = env("OSRM_BASE_URL", default="https://router.project-osrm.org")
 NOMINATIM_BASE_URL = env("NOMINATIM_BASE_URL", default="https://nominatim.openstreetmap.org")
 FUEL_DATA_CSV_PATH = env(

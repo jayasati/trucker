@@ -167,6 +167,22 @@ If the nearest station to the origin is itself beyond one tank's reach, or if an
 route exceeds the tank range with no station in reach on either side, the API returns `422` with
 the exact position and shortfall, rather than silently failing.
 
+### Not hopping stop-to-stop for a splash of fuel
+
+Near a city, truck stops are often packed within a few miles of each other at slightly different
+prices. Taken literally, the cheaper-ahead rule above would treat every one of them as a fresh
+opportunity — bridging to a station 2 miles up the road to save half a cent a gallon, buying a
+fraction of a gallon there, then doing it again a mile later. That's cheaper on paper but not how
+anyone actually fuels a truck.
+
+**`MIN_PURCHASE_GALLONS`** (default `10`, configurable via env var) fixes this: a reachable station
+only counts as "cheaper ahead" if bridging to it means buying at least this many gallons here —
+otherwise it's skipped and the next reachable-and-cheaper station is tried, falling through to
+filling up (or topping off to finish the trip) at the current station if none qualify. The one
+exception is a **free coast**: if there's already enough fuel in the tank to reach a cheaper
+station without buying anything at all, that's not a stop being made too small — no purchase
+happens there, so the minimum never blocks it.
+
 ---
 
 ## Data pipeline
@@ -364,6 +380,10 @@ curl "https://trucker-319172055462.us-east4.run.app/api/places/?q=ne"
 - **10-mile detour radius is a default, not a hard limit** — configurable via
   `DETOUR_RADIUS_MILES`, and factored into the optimizer's ranking (not just a binary
   include/exclude cutoff).
+- **10-gallon minimum purchase is a default, not a hard rule** — configurable via
+  `MIN_PURCHASE_GALLONS`; stations don't count as "cheaper ahead" unless bridging to them means
+  buying at least this much fuel, so the optimizer doesn't hop between stations minutes apart to
+  save a few cents (see "Not hopping stop-to-stop for a splash of fuel" above).
 
 ---
 
@@ -381,7 +401,8 @@ deployed on Google Cloud Run.
 pytest
 ```
 
-84 tests across dedupe/upsert idempotency, corridor matching, the optimizer (empty-tank start,
+87 tests across dedupe/upsert idempotency, corridor matching, the optimizer (empty-tank start,
 cheaper-ahead partial buy, fill-full, unreachable-gap failure, blended-average detour-cost
-ranking), dashboard/analytics aggregation, station-directory filtering, and offline place search —
-all against synthetic data, no network calls, runs in about a second.
+ranking, minimum-purchase filtering), dashboard/analytics aggregation, station-directory
+filtering, and offline place search — all against synthetic data, no network calls, runs in about
+a second.
