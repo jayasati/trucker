@@ -271,14 +271,23 @@ def plan_fuel_stops(
 
         else:
             target = min(reachable, key=eff)
-            gallons_to_buy = max(0.0, tank_capacity_gallons - gallons_in_tank)
+            distance_to_target = (target.miles_from_start - position) + 2 * target.detour_miles
+            gallons_needed_for_target = distance_to_target / mpg
+
+            # Only buy if the tank doesn't already cover reaching this target
+            # -- topping off "because nothing's cheaper" is pointless (and an
+            # unrealistic tiny stop) when there's already enough fuel on
+            # board to get there for free.
+            if gallons_in_tank >= gallons_needed_for_target - DISTANCE_EPSILON:
+                gallons_to_buy = 0.0
+            else:
+                gallons_to_buy = max(0.0, tank_capacity_gallons - gallons_in_tank)
 
             cost = buy(gallons_to_buy, current_price)
             if cost:
                 stops.append(_to_stop(current_station, gallons_to_buy, cost))
 
-            distance_to_target = (target.miles_from_start - position) + 2 * target.detour_miles
-            gallons_in_tank -= distance_to_target / mpg
+            gallons_in_tank -= gallons_needed_for_target
             position = target.miles_from_start
             current_station = target
 

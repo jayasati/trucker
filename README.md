@@ -183,6 +183,12 @@ exception is a **free coast**: if there's already enough fuel in the tank to rea
 station without buying anything at all, that's not a stop being made too small — no purchase
 happens there, so the minimum never blocks it.
 
+The same "already have enough" check applies to the fill-full branch itself: after filling up and
+driving to the cheapest reachable station, arriving there with plenty of leftover fuel (e.g. a
+50-gallon fill only 20 miles back) no longer forces a top-off purchase — it's a free pass-through,
+just like a cheaper-ahead free coast, and the station won't appear as a stop at all unless fuel is
+actually needed there.
+
 ---
 
 ## Data pipeline
@@ -401,7 +407,7 @@ deployed on Google Cloud Run.
 pytest
 ```
 
-87 tests across dedupe/upsert idempotency, corridor matching, the optimizer (empty-tank start,
+88 tests across dedupe/upsert idempotency, corridor matching, the optimizer (empty-tank start,
 cheaper-ahead partial buy, fill-full, unreachable-gap failure, blended-average detour-cost
 ranking, minimum-purchase filtering), dashboard/analytics aggregation, station-directory
 filtering, and offline place search — all against synthetic data, no network calls, runs in about

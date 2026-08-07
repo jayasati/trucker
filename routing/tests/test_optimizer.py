@@ -223,6 +223,31 @@ def test_small_detour_with_big_price_gap_is_worth_a_partial_buy():
     assert total < fill_full_at_pump1_cost
 
 
+def test_fill_full_target_with_leftover_fuel_is_a_free_pass_through():
+    # Regression case: after filling full and driving to the cheapest
+    # reachable target, that arrival station used to *always* top off to a
+    # full tank again, even when the leftover fuel already covered reaching
+    # wherever came next -- producing an unrealistic tiny stop (e.g. a real
+    # observed case: a 50gal fill, then a 2.4gal "top-up" only 18 miles
+    # later). It should instead pass through for free with no purchase.
+    station_a = _station(1, 100, price=3.00, name="A")  # start: fills a full tank
+    station_b = _station(2, 150, price=3.10, name="B")  # 50mi away: the fill-full target
+    station_c = _station(3, 200, price=3.20, name="C")  # 50mi past B -- covered by leftover
+
+    result = _plan(700.0, [station_a, station_b, station_c])
+
+    # B is passed through with 45gal of leftover fuel (way more than the
+    # 5gal needed to reach C) -- no purchase happens there.
+    assert [stop.station_id for stop in result.fuel_stops] == [1, 3]
+
+    assert result.fuel_stops[0].gallons == pytest.approx(TANK_RANGE_MILES / MPG)
+    assert result.fuel_stops[0].cost == pytest.approx((TANK_RANGE_MILES / MPG) * 3.00)
+
+    # Finishes at C's price, having coasted there for free from B.
+    assert result.fuel_stops[1].gallons == pytest.approx(10.0)
+    assert result.fuel_stops[1].price_per_gallon == pytest.approx(3.20)
+
+
 def test_full_tank_amortization_is_a_known_approximation():
     # Documents a known limitation of amortizing a detour's toll over a full
     # tank's capacity rather than the amount actually bought: when a
