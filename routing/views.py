@@ -193,7 +193,7 @@ class PlaceSuggestView(APIView):
 
 
 class RouteView(APIView):
-    """POST /api/route/ — see CLAUDE.md for the full request/response contract."""
+    """POST /api/route/ — see SPEC.md for the full request/response contract."""
 
     def post(self, request):
         start_time = time.monotonic()

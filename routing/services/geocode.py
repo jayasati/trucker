@@ -2,7 +2,7 @@
 
 Coordinate strings ("lat,lng") pass through with no DB or network access.
 Place names ("City, ST") hit Nominatim at most once per distinct query,
-ever — results are cached permanently in GeocodeCache (see CLAUDE.md's
+ever — results are cached permanently in GeocodeCache (see SPEC.md's
 request-path budget: max 2 Nominatim calls, one per endpoint).
 """
 

@@ -25,7 +25,7 @@ class RouteResult:
 def get_route(start: tuple[float, float], finish: tuple[float, float]) -> RouteResult:
     """Fetch the driving route between two (lat, lng) points from the public OSRM server.
 
-    Exactly one HTTP call, per the request-path budget in CLAUDE.md.
+    Exactly one HTTP call, per the request-path budget in SPEC.md.
     """
     start_lat, start_lng = start
     finish_lat, finish_lng = finish

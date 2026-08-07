@@ -87,7 +87,7 @@ class OptimizerResult:
 
 def effective_cost(price: float, detour_miles: float, mpg: float) -> float:
     """Price inflated by the cost of the fuel burned detouring off the highway
-    and back (round trip), per CLAUDE.md: price + 2*detour_miles/mpg * price.
+    and back (round trip), per SPEC.md: price + 2*detour_miles/mpg * price.
     """
     return price + (2.0 * detour_miles / mpg) * price
 

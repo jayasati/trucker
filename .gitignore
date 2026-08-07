@@ -11,3 +11,4 @@ staticfiles/
 .DS_Store
 htmlcov/
 .coverage
+.claude/
