@@ -127,20 +127,33 @@ flowchart TD
     Full --> Start
 ```
 
-**Why this is optimal:** with a fixed tank range, the cheapest way to fuel a trip is to always
-delay buying gas for as long as possible, buying only enough to reach the next opportunity that's
-*at least as good*. At any station, if a reachable station ahead is cheaper, buying more than the
-minimum needed to reach it is strictly wasteful — those extra gallons could be bought cheaper very
-soon. Conversely, if nothing ahead is cheaper, every gallon needed for the next full tank's worth
-of driving is best bought right now, at the best price available for a while — so fill up
-completely. This is a textbook greedy-exchange argument: any schedule that deviates from these two
-rules can be transformed into one that follows them without increasing cost.
+**Why this is optimal** *(for the classic, detour-free version of the problem)*: with a fixed
+tank range, the cheapest way to fuel a trip is to always delay buying gas for as long as possible,
+buying only enough to reach the next opportunity that's *at least as good*. At any station, if a
+reachable station ahead is cheaper, buying more than the minimum needed to reach it is strictly
+wasteful — those extra gallons could be bought cheaper very soon. Conversely, if nothing ahead is
+cheaper, every gallon needed for the next full tank's worth of driving is best bought right now, at
+the best price available for a while — so fill up completely. This is a textbook greedy-exchange
+argument: any schedule that deviates from these two rules can be transformed into one that follows
+them without increasing cost.
 
 Three refinements on top of the textbook version:
 
-1. **Stations are ranked by *effective* cost**, not sticker price: `price + (2 × detour_miles /
-   mpg) × price` — the cost of the fuel burned making the round trip off the highway and back. A
-   cheap-but-far station can correctly lose to a pricier-but-closer one.
+1. **Stations reached by a detour are ranked by *effective* cost**, not sticker price. Since fuel
+   is fungible once it's in the tank, the round-trip detour's cost is split by *when* each leg is
+   driven: the outbound leg (route → pump) burns whatever's already blended in the tank, valued at
+   the running weighted-average cost of held fuel; the return leg (pump → route) burns fuel bought
+   right there, at that station's own price. Both legs are amortized over a full tank's capacity to
+   get a comparable per-gallon rate:
+   `price + (detour_miles / tank_range_miles) × (blended_avg_cost_in_tank + price)`.
+   This is a **documented approximation, not an exact optimum** — it assumes a station reached by
+   detour will end up selling close to a full tank's worth. When the actual amount bought there is
+   much smaller (a thin price edge, a modest detour, but a purchase far short of a full tank), the
+   toll can be over-amortized and a detour can look more attractive than it truly is. An exact fix
+   would require comparing full downstream trip costs (a lookahead/DP), not a single per-station
+   ranking formula — a larger change than the current single-pass greedy. `test_optimizer.py` has a
+   test pinning this known behavior (`test_full_tank_amortization_is_a_known_approximation`) so a
+   future change to the model is a conscious decision, not an accidental regression.
 2. **The destination is a free, always-available target.** Once it's reachable on the current
    tank, the optimizer buys only the exact remainder needed and stops — it never tops off fuel
    that will never be used.
@@ -368,7 +381,7 @@ deployed on Google Cloud Run.
 pytest
 ```
 
-81 tests across dedupe/upsert idempotency, corridor matching, the optimizer (empty-tank start,
-cheaper-ahead partial buy, fill-full, unreachable-gap failure, detour-penalty tie-breaks),
-dashboard/analytics aggregation, station-directory filtering, and offline place search — all
-against synthetic data, no network calls, runs in about a second.
+84 tests across dedupe/upsert idempotency, corridor matching, the optimizer (empty-tank start,
+cheaper-ahead partial buy, fill-full, unreachable-gap failure, blended-average detour-cost
+ranking), dashboard/analytics aggregation, station-directory filtering, and offline place search —
+all against synthetic data, no network calls, runs in about a second.

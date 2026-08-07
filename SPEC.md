@@ -35,14 +35,20 @@ Retail Price). Addresses are highway-exit style with NO coordinates.
   (vectorized), downsample to ~1 point per 2 miles, single batched
   cKDTree.query (workers=-1) in equirectangular-projected space
   (lng scaled by cos(lat)), 10-mile detour radius (settings-configurable).
-- Optimizer: provably-optimal greedy for the gas-station problem:
-  at each station, if a CHEAPER station is within remaining 500-mile range,
-  buy only enough fuel to reach it; otherwise FILL FULL and drive to the
-  cheapest station in range. Tank starts EMPTY: the first purchase happens at
-  the station nearest the origin (that's reachable at all within one tank of
-  mile 0 — 422 if none is), then the same rule applies from there on. Rank
-  stations by EFFECTIVE cost including detour fuel: price + detour penalty
-  (2 * detour_miles / 10 mpg * price). Detour miles reduce usable range.
+- Optimizer: greedy for the gas-station problem (provably optimal for the
+  classic detour-free version): at each station, if a CHEAPER station is
+  within remaining 500-mile range, buy only enough fuel to reach it;
+  otherwise FILL FULL and drive to the cheapest station in range. Tank
+  starts EMPTY: the first purchase happens at the station nearest the origin
+  (that's reachable at all within one tank of mile 0 — 422 if none is), then
+  the same rule applies from there on. Rank detour stations by EFFECTIVE
+  cost: price + (detour_miles / tank_range_miles) * (blended_avg_cost_in_tank
+  + price) — the round trip's outbound leg burns whatever's already blended
+  in the tank (weighted-average cost of held fuel), the return leg burns
+  fuel bought at that station's own price, both amortized over a full
+  tank's capacity. This is a documented approximation (assumes a near-full
+  purchase there), not an exact optimum — see README's "known limitation"
+  note and `test_full_tank_amortization_is_a_known_approximation`.
 - Fuel cost = sum(gallons bought at each stop * that stop's price), 10 mpg.
   Every trip with positive distance buys real fuel and gets >=1 stop; only a
   zero-distance trip (start == finish) needs none.

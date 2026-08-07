@@ -39,12 +39,25 @@ def _plan(total_distance_miles, candidates, **kwargs):
 
 
 def test_effective_cost_with_zero_detour_equals_price():
-    assert effective_cost(price=3.00, detour_miles=0.0, mpg=MPG) == pytest.approx(3.00)
+    result = effective_cost(price=3.00, detour_miles=0.0, tank_range_miles=TANK_RANGE_MILES, outbound_reference_price=3.00)
+    assert result == pytest.approx(3.00)
 
 
-def test_effective_cost_adds_round_trip_detour_penalty():
-    # price + (2*detour/mpg)*price = 3.00 + (2*5/10)*3.00 = 3.00 + 3.00 = 6.00
-    assert effective_cost(price=3.00, detour_miles=5.0, mpg=MPG) == pytest.approx(6.00)
+def test_effective_cost_amortizes_detour_toll_over_a_full_tank():
+    # No blending history (outbound reference == this station's own price):
+    # price + (detour/tank_range)*(price+price) = 3.00 + (5/500)*6.00 = 3.00 + 0.06 = 3.06
+    result = effective_cost(price=3.00, detour_miles=5.0, tank_range_miles=TANK_RANGE_MILES, outbound_reference_price=3.00)
+    assert result == pytest.approx(3.06)
+
+
+def test_effective_cost_uses_blended_outbound_reference():
+    # Outbound leg (route -> pump) burns fuel already in the tank, valued at
+    # the blended reference price (3.40, e.g. from an earlier, pricier fill)
+    # -- not this station's own (cheaper) price. Return leg uses this
+    # station's own price (3.08).
+    # 3.08 + (1.2/500)*(3.40+3.08) = 3.08 + 0.0024*6.48 = 3.08 + 0.015552
+    result = effective_cost(price=3.08, detour_miles=1.2, tank_range_miles=TANK_RANGE_MILES, outbound_reference_price=3.40)
+    assert result == pytest.approx(3.095552)
 
 
 # --- zero-distance trip: nothing to buy --------------------------------------
@@ -153,12 +166,12 @@ def test_detour_penalty_flips_choice_between_two_stations():
     # A cheap "starter" station right near the origin -- unambiguously the
     # nearest, so it's the forced first fill regardless of price elsewhere.
     starter = _station(3, 50, price=2.00, name="Starter")
-    # Cheaper sticker price but a big detour: effective cost 2.50 + (2*8/10)*2.50 = 6.50
-    cheap_but_far = _station(1, 300, price=2.50, detour_miles=8.0, name="Cheap But Far")
+    # Cheaper sticker price but a huge detour (80mi one-way): even amortized
+    # over a full 50gal tank, that's 160 of the 500 tank-range miles going
+    # toward the round trip -- effective cost 2.50 + (80/500)*(2.00+2.50) = 3.22
+    cheap_but_far = _station(1, 300, price=2.50, detour_miles=80.0, name="Cheap But Far")
     # Pricier sticker price, right on the corridor: effective cost stays 3.00
     pricier_but_close = _station(2, 350, price=3.00, detour_miles=0.0, name="Pricier But Close")
-
-    assert effective_cost(2.50, 8.0, MPG) > effective_cost(3.00, 0.0, MPG)
 
     result = _plan(700.0, [starter, cheap_but_far, pricier_but_close])
 
@@ -167,12 +180,72 @@ def test_detour_penalty_flips_choice_between_two_stations():
     # Nothing beats the starter's $2.00 by effective cost, so it fills the
     # tank completely and drives to whichever reachable station is cheapest
     # by *effective* cost -- the pricier-but-close one, not the cheap-but-far
-    # one, despite its lower sticker price.
+    # one, whose 80-mile detour outweighs its lower sticker price even once
+    # amortized over a full tank.
     second = result.fuel_stops[1]
     assert second.station_id == 2
     assert second.price_per_gallon == pytest.approx(3.00)
 
     assert all(stop.station_id != 1 for stop in result.fuel_stops)
+
+
+def test_small_detour_with_big_price_gap_is_worth_a_partial_buy():
+    # The motivating regression case: a detour so small relative to the
+    # sticker-price gap that it's clearly worth bridging to, even once the
+    # naive (unamortized) formula would have said otherwise. Mirrors a real
+    # observed case: $3.40/gal at mile 4 (10mi detour) vs $3.08/gal at mile
+    # 61 (1.2mi detour) -- the 1.2mi detour barely matters amortized over a
+    # full tank, so pump2 should win and only a partial buy happens at pump1.
+    pump1 = _station(1, 4, price=3.40, detour_miles=10.0, name="Pump 1")
+    pump2 = _station(2, 61, price=3.08, detour_miles=1.2, name="Pump 2")
+
+    result = _plan(400.0, [pump1, pump2])
+
+    assert len(result.fuel_stops) == 2
+    first, second = result.fuel_stops
+
+    assert first.station_id == 1
+    # Bridge to pump2: (61-4) + 2*1.2 = 59.4mi = 5.94gal -- NOT a full tank.
+    assert first.gallons == pytest.approx(5.94)
+    assert first.cost == pytest.approx(5.94 * 3.40)
+
+    assert second.station_id == 2
+    assert second.gallons == pytest.approx(33.9)
+    assert second.cost == pytest.approx(33.9 * 3.08)
+
+    total = result.total_fuel_cost
+    assert total == pytest.approx(5.94 * 3.40 + 33.9 * 3.08)
+
+    # Sanity check against the old (wrong) behavior: filling the tank
+    # completely at pump1 and coasting past pump2 would have cost more.
+    fill_full_at_pump1_cost = (TANK_RANGE_MILES / MPG) * 3.40
+    assert total < fill_full_at_pump1_cost
+
+
+def test_full_tank_amortization_is_a_known_approximation():
+    # Documents a known limitation of amortizing a detour's toll over a full
+    # tank's capacity rather than the amount actually bought: when a
+    # candidate's real, small purchase can't absorb the toll as cheaply as a
+    # full tank would, the model can still prefer a detour that a true
+    # total-cost comparison would reject. This is an accepted, documented
+    # tradeoff (see effective_cost()'s docstring), not a bug -- this test
+    # pins the current, known-approximate behavior so a future change to the
+    # model is a conscious decision, not an accidental regression.
+    cheap_start = _station(1, 100, price=2.00, name="Cheap Start")
+    pricier_next = _station(2, 520, price=2.50, name="Pricier Next")
+    # Only slightly cheaper than pricier_next, and reachable with a 25mi
+    # detour -- attractive when its toll is amortized over a full tank, even
+    # though only a few gallons end up being bought nearby.
+    marginal_detour = _station(3, 620, price=2.28, detour_miles=25.0, name="Marginal Detour")
+
+    result = _plan(650.0, [cheap_start, pricier_next, marginal_detour])
+
+    # The model chooses to visit the detour station...
+    assert [stop.station_id for stop in result.fuel_stops] == [1, 2, 3]
+    # ...even though skipping it and buying the rest at pricier_next is
+    # actually cheaper in total -- the known approximation error.
+    skip_detour_cost = (TANK_RANGE_MILES / MPG) * 2.00 + 5.0 * 2.50
+    assert result.total_fuel_cost > skip_detour_cost
 
 
 # --- gap between stations exceeds tank range: must fail clearly -------------
