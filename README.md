@@ -458,6 +458,15 @@ curl "https://trucker-319172055462.us-east4.run.app/api/places/?q=ne"
 | `422` | A stretch of the route exceeds the tank range with no reachable station | `{"error": "No fuel station reachable within 500 miles of mile 36.2 (532.9 miles remain to the destination) — route has an unreachable fuel gap."}` |
 | `502` | OSRM or Nominatim didn't respond | `{"error": "OSRM request timed out."}` |
 
+### Testing the API
+
+A ready-to-run [Postman collection](postman/) covers both endpoints — happy paths, caching,
+`400`/`404` errors, and scripted assertions on the optimizer's invariants (tank ledger balances
+at every stop, pass-throughs cost nothing, the first stop respects the search radius). Runs
+headless via `npx newman run postman/Trucker.postman_collection.json -e
+postman/Trucker.Production.postman_environment.json`, or import all three files into the Postman
+app. See [`postman/README.md`](postman/README.md) for details.
+
 ---
 
 ## Price-update design

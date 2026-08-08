@@ -1,0 +1,410 @@
+{
+  "info": {
+    "_postman_id": "8f0b6f2e-6c3a-4b1a-9e3d-trucker-api-collection",
+    "name": "Trucker — Fuel Route Optimizer API",
+    "description": "API tests for the Trucker fuel route optimizer. Covers POST /api/route/ (happy paths, caching, error cases) and GET /api/places/. Tests assert not just status codes but the business-logic invariants the optimizer guarantees: fuel_stops/all_stops shape, the pass_through flag, and the tank ledger (tank_gallons_arriving + gallons == tank_gallons_departing, capped at the tank size) documented in README.md.\n\nSet the `baseUrl` collection variable (or use the bundled Local/Production environments) before running.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://trucker-319172055462.us-east4.run.app",
+      "type": "string"
+    },
+    {
+      "key": "tankRangeMiles",
+      "value": "500",
+      "type": "string",
+      "description": "Must match TANK_RANGE_MILES on the server being tested (default 500)."
+    }
+  ],
+  "item": [
+    {
+      "name": "Route Planner",
+      "item": [
+        {
+          "name": "Plan route — short trip (under one tank)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"response has the documented top-level shape\", function () {",
+                  "    pm.expect(body).to.have.all.keys(",
+                  "        \"total_distance_miles\", \"total_fuel_cost\", \"fuel_stops\",",
+                  "        \"all_stops\", \"route\", \"price_version\", \"cached\", \"compute_ms\"",
+                  "    );",
+                  "});",
+                  "",
+                  "pm.test(\"tank starts empty: at least one real fuel stop for a positive-distance trip\", function () {",
+                  "    pm.expect(body.total_distance_miles).to.be.above(0);",
+                  "    pm.expect(body.fuel_stops.length).to.be.at.least(1);",
+                  "});",
+                  "",
+                  "pm.test(\"total_fuel_cost equals the sum of fuel_stops[].cost\", function () {",
+                  "    const sum = body.fuel_stops.reduce((acc, s) => acc + s.cost, 0);",
+                  "    pm.expect(sum).to.be.closeTo(body.total_fuel_cost, 0.05);",
+                  "});",
+                  "",
+                  "pm.test(\"route geometry is a non-empty LineString\", function () {",
+                  "    pm.expect(body.route.type).to.eql(\"LineString\");",
+                  "    pm.expect(body.route.coordinates.length).to.be.above(1);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set(\"lastComputeMs\", body.compute_ms);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start\": \"Milwaukee, WI\",\n  \"finish\": \"Madison, WI\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/route/",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "route", "" ]
+            },
+            "description": "A trip that fits well under one tank. The tank still starts empty, so this must return exactly one real fuel stop, not zero."
+          },
+          "response": []
+        },
+        {
+          "name": "Plan route — long trip (multi-stop, pass-throughs)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "const tankCap = Number(pm.collectionVariables.get(\"tankRangeMiles\")) / 10; // MPG default 10",
+                  "",
+                  "pm.test(\"multiple real fuel stops for a cross-country trip\", function () {",
+                  "    pm.expect(body.fuel_stops.length).to.be.above(1);",
+                  "});",
+                  "",
+                  "pm.test(\"all_stops is a superset of fuel_stops, in mile order\", function () {",
+                  "    pm.expect(body.all_stops.length).to.be.at.least(body.fuel_stops.length);",
+                  "    for (let i = 1; i < body.all_stops.length; i++) {",
+                  "        pm.expect(body.all_stops[i].miles_from_start).to.be.at.least(body.all_stops[i - 1].miles_from_start);",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test(\"every fuel_stops entry has pass_through === false\", function () {",
+                  "    body.fuel_stops.forEach((s) => pm.expect(s.pass_through).to.eql(false));",
+                  "});",
+                  "",
+                  "pm.test(\"pass-through stops (if any) bought zero gallons and cost nothing\", function () {",
+                  "    body.all_stops.filter((s) => s.pass_through).forEach((s) => {",
+                  "        pm.expect(s.gallons).to.eql(0);",
+                  "        pm.expect(s.cost).to.eql(0);",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"tank ledger balances at every stop: arriving + bought == departing\", function () {",
+                  "    body.all_stops.forEach((s) => {",
+                  "        pm.expect(s.tank_gallons_arriving + s.gallons).to.be.closeTo(s.tank_gallons_departing, 0.02);",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"tank never exceeds capacity at any stop\", function () {",
+                  "    body.all_stops.forEach((s) => {",
+                  "        pm.expect(s.tank_gallons_departing).to.be.at.most(tankCap + 0.02);",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"first fuel stop is well within the start-search radius (not a random distant station)\", function () {",
+                  "    pm.expect(body.fuel_stops[0].miles_from_start).to.be.below(30);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start\": \"New York, NY\",\n  \"finish\": \"Los Angeles, CA\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/route/",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "route", "" ]
+            },
+            "description": "Cross-country trip. Exercises multi-stop planning and (usually) at least one free pass-through waypoint -- see 'Auditing every stop' in README.md."
+          },
+          "response": []
+        },
+        {
+          "name": "Plan route — coordinate input (skips geocoding)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test(\"still returns a full route + stops for raw lat,lng input\", function () {",
+                  "    pm.expect(body.total_distance_miles).to.be.above(0);",
+                  "    pm.expect(body.route.coordinates.length).to.be.above(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start\": \"43.0389,-87.9065\",\n  \"finish\": \"43.0731,-89.4012\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/route/",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "route", "" ]
+            },
+            "description": "A raw \"lat,lng\" pair for start/finish bypasses Nominatim entirely -- this should be noticeably faster than the city-name requests (check compute_ms)."
+          },
+          "response": []
+        },
+        {
+          "name": "Plan route — repeat request (cache hit)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"identical request is served from cache\", function () {",
+                  "    pm.expect(body.cached).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test(\"cached response is effectively instant\", function () {",
+                  "    pm.expect(body.compute_ms).to.be.below(50);",
+                  "});",
+                  "",
+                  "const previous = pm.collectionVariables.get(\"lastComputeMs\");",
+                  "if (previous) {",
+                  "    pm.test(\"cached compute_ms is far cheaper than the original request\", function () {",
+                  "        pm.expect(Number(body.compute_ms)).to.be.below(Number(previous));",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start\": \"Milwaukee, WI\",\n  \"finish\": \"Madison, WI\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/route/",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "route", "" ]
+            },
+            "description": "Run the 'short trip' request above at least once first (same start/finish) so this hits the response cache -- see 'cached: true' in the response."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Places Autocomplete",
+      "item": [
+        {
+          "name": "Search places — \"ne\"",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"results array is present and non-empty for a common query\", function () {",
+                  "    pm.expect(body.results).to.be.an(\"array\");",
+                  "    pm.expect(body.results.length).to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.test(\"every result has label/lat/lng\", function () {",
+                  "    body.results.forEach((r) => {",
+                  "        pm.expect(r).to.have.all.keys(\"label\", \"lat\", \"lng\");",
+                  "        pm.expect(r.label).to.be.a(\"string\");",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/places/?q=ne",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "places", "" ],
+              "query": [ { "key": "q", "value": "ne" } ]
+            },
+            "description": "Offline autocomplete, zero network calls server-side -- backed by the bundled zipcodes dataset."
+          },
+          "response": []
+        },
+        {
+          "name": "Search places — query too short (<2 chars)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"single-character query returns no results, not an error\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.results).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/places/?q=n",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "places", "" ],
+              "query": [ { "key": "q", "value": "n" } ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Error Cases",
+      "item": [
+        {
+          "name": "Plan route — missing start/finish (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test(\"error object names the required fields\", function () {",
+                  "    pm.expect(body.error).to.have.property(\"start\");",
+                  "    pm.expect(body.error).to.have.property(\"finish\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/route/",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "route", "" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Plan route — location not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test(\"error message identifies the bad location\", function () {",
+                  "    pm.expect(body.error).to.be.a(\"string\");",
+                  "    pm.expect(body.error.toLowerCase()).to.include(\"not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start\": \"Zzzqqxnowhere\",\n  \"finish\": \"New York, NY\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/route/",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api", "route", "" ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
