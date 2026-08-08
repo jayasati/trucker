@@ -148,26 +148,31 @@ def _route_to_geojson(route_geometry: list[tuple[float, float]]) -> dict:
     }
 
 
+def _serialize_stop(stop) -> dict:
+    return {
+        "name": stop.name,
+        "address": stop.address,
+        "city": stop.city,
+        "state": stop.state,
+        "price_per_gallon": round(stop.price_per_gallon, 3),
+        "gallons": round(stop.gallons, 2),
+        "cost": round(stop.cost, 2),
+        "miles_from_start": round(stop.miles_from_start, 1),
+        "detour_miles": round(stop.detour_miles, 1),
+        "latitude": round(stop.latitude, 5),
+        "longitude": round(stop.longitude, 5),
+        "pass_through": stop.pass_through,
+        "tank_gallons_arriving": round(stop.tank_gallons_arriving, 2),
+        "tank_gallons_departing": round(stop.tank_gallons_departing, 2),
+    }
+
+
 def _serialize_plan(plan: RoutePlan) -> dict:
     payload = {
         "total_distance_miles": round(plan.total_distance_miles, 1),
         "total_fuel_cost": round(plan.total_fuel_cost, 2),
-        "fuel_stops": [
-            {
-                "name": stop.name,
-                "address": stop.address,
-                "city": stop.city,
-                "state": stop.state,
-                "price_per_gallon": round(stop.price_per_gallon, 3),
-                "gallons": round(stop.gallons, 2),
-                "cost": round(stop.cost, 2),
-                "miles_from_start": round(stop.miles_from_start, 1),
-                "detour_miles": round(stop.detour_miles, 1),
-                "latitude": round(stop.latitude, 5),
-                "longitude": round(stop.longitude, 5),
-            }
-            for stop in plan.fuel_stops
-        ],
+        "fuel_stops": [_serialize_stop(stop) for stop in plan.fuel_stops],
+        "all_stops": [_serialize_stop(stop) for stop in plan.all_stops],
         "route": _route_to_geojson(plan.route_geometry),
         "price_version": plan.price_version,
     }

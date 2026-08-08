@@ -24,6 +24,7 @@ class RoutePlan:
     total_distance_miles: float
     total_fuel_cost: float
     fuel_stops: list[FuelStop]
+    all_stops: list[FuelStop]
     route_geometry: list[tuple[float, float]]  # (lat, lng), in route order
     price_version: int
 
@@ -47,12 +48,14 @@ def plan_route(start_query: str, finish_query: str) -> RoutePlan:
         tank_range_miles=settings.TANK_RANGE_MILES,
         mpg=settings.MPG,
         min_purchase_gallons=settings.MIN_PURCHASE_GALLONS,
+        start_search_radius_miles=settings.START_SEARCH_RADIUS_MILES,
     )
 
     return RoutePlan(
         total_distance_miles=route_result.distance_miles,
         total_fuel_cost=optimizer_result.total_fuel_cost,
         fuel_stops=optimizer_result.fuel_stops,
+        all_stops=optimizer_result.all_stops,
         route_geometry=route_result.geometry,
         price_version=price_version,
     )

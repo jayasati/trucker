@@ -39,9 +39,15 @@ Retail Price). Addresses are highway-exit style with NO coordinates.
   classic detour-free version): at each station, if a CHEAPER station is
   within remaining 500-mile range, buy only enough fuel to reach it;
   otherwise FILL FULL and drive to the cheapest station in range. Tank
-  starts EMPTY: the first purchase happens at the station nearest the origin
-  (that's reachable at all within one tank of mile 0 — 422 if none is), then
-  the same rule applies from there on. Rank detour stations by EFFECTIVE
+  starts EMPTY: the first purchase happens at the CHEAPEST (effective-cost)
+  station reachable within a short START_SEARCH_RADIUS_MILES (default 15mi,
+  settings-configurable) of mile 0, not the nearest — the origin-to-entry
+  leg is unpriced for every station within that radius equally, so entering
+  at a nearer-but-pricier one would force a real, avoidable purchase to
+  bridge to the cheaper one just past it. If nothing is within that radius,
+  the search falls back to one full tank of mile 0 (422 if even that finds
+  nothing) rather than stranding the truck. The same cheaper-ahead rule
+  applies from there on, over the full tank range. Rank detour stations by EFFECTIVE
   cost: price + (detour_miles / tank_range_miles) * (blended_avg_cost_in_tank
   + price) — the round trip's outbound leg burns whatever's already blended
   in the tank (weighted-average cost of held fuel), the return leg burns

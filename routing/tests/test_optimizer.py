@@ -33,6 +33,7 @@ def _plan(total_distance_miles, candidates, **kwargs):
         tank_range_miles=kwargs.get("tank_range_miles", TANK_RANGE_MILES),
         mpg=kwargs.get("mpg", MPG),
         min_purchase_gallons=kwargs.get("min_purchase_gallons", 0.0),
+        start_search_radius_miles=kwargs.get("start_search_radius_miles"),
     )
 
 
@@ -70,16 +71,82 @@ def test_zero_distance_trip_needs_no_fuel():
     assert result.total_fuel_cost == 0.0
 
 
-# --- tank starts empty: the first purchase happens at the nearest station ---
+# --- tank starts empty: the first purchase happens at the cheapest reachable
+# --- station, not the nearest one ------------------------------------------
 
 
-def test_trip_within_one_tank_still_buys_fuel_at_nearest_station():
-    # Tank starts empty, so even a trip that fits in one tank needs a real
-    # fill-up: the truck tops off at the nearest station on the way, buying
-    # cheaper fuel further on when a cheaper station becomes reachable.
-    candidates = [_station(1, 100, price=3.00), _station(2, 250, price=2.80)]
+def test_first_purchase_prefers_cheapest_reachable_station_over_nearest():
+    # The origin-to-entry leg is unpriced for every station within one tank
+    # of the origin, not just the closest one -- so a nearer-but-pricier
+    # station should never be visited just to bridge to a cheaper one that
+    # was *already* reachable directly from the origin. Station A is nearer
+    # but pricier; Station B is farther but cheaper and still well within
+    # tank range of the origin -- B should be the entry, and A should never
+    # be visited (or paid for) at all.
+    station_a = _station(1, 8, price=5.10, name="A")
+    station_b = _station(2, 35, price=3.40, name="B")
 
-    result = _plan(300.0, candidates)
+    result = _plan(140.0, [station_a, station_b], tank_range_miles=150.0)
+
+    assert len(result.fuel_stops) == 1
+    stop = result.fuel_stops[0]
+    assert stop.station_id == 2
+    # Remaining 105mi (140 - 35) = 10.5gal, all at B's price.
+    assert stop.gallons == pytest.approx(10.5)
+    assert stop.cost == pytest.approx(10.5 * 3.40)
+    assert result.total_fuel_cost == pytest.approx(10.5 * 3.40)
+    assert all(stop.station_id != 1 for stop in result.fuel_stops)
+
+
+def test_start_search_radius_limits_the_entry_search_to_nearby_stations():
+    # Same layout as the test above, but with a start_search_radius_miles of
+    # 15: B (35mi out) is cheaper but outside that radius, so it's not a
+    # candidate for the *entry* decision at all -- A is the sole station
+    # within 15mi, so it's the forced entry, and the standard cheaper-ahead
+    # rule bridges from A to B afterward exactly as if B were the only
+    # reachable "cheaper ahead" option (which, for entry purposes, it is).
+    station_a = _station(1, 8, price=5.10, name="A")
+    station_b = _station(2, 35, price=3.40, name="B")
+
+    result = _plan(140.0, [station_a, station_b], tank_range_miles=150.0, start_search_radius_miles=15.0)
+
+    assert len(result.fuel_stops) == 2
+    first, second = result.fuel_stops
+    assert first.station_id == 1
+    # Bridge to B: 27mi = 2.7gal, bought at A's price.
+    assert first.gallons == pytest.approx(2.7)
+    assert first.cost == pytest.approx(2.7 * 5.10)
+    assert second.station_id == 2
+    assert second.gallons == pytest.approx(10.5)
+    assert second.cost == pytest.approx(10.5 * 3.40)
+
+
+def test_start_search_radius_falls_back_to_full_tank_when_nothing_nearby():
+    # If nothing qualifies within start_search_radius_miles (here, neither
+    # station is within 5mi of the origin), the search falls back to the
+    # full tank range rather than stranding the truck -- landing back on
+    # the cheapest-reachable entry (B), same as with no radius restriction.
+    station_a = _station(1, 8, price=5.10, name="A")
+    station_b = _station(2, 35, price=3.40, name="B")
+
+    result = _plan(140.0, [station_a, station_b], tank_range_miles=150.0, start_search_radius_miles=5.0)
+
+    assert len(result.fuel_stops) == 1
+    stop = result.fuel_stops[0]
+    assert stop.station_id == 2
+    assert stop.gallons == pytest.approx(10.5)
+    assert stop.cost == pytest.approx(10.5 * 3.40)
+
+
+def test_trip_within_one_tank_still_buys_fuel_at_forced_entry():
+    # Station1 is positioned so it's the *only* station reachable from the
+    # origin (station2 sits just past the tank-range boundary from mile 0,
+    # though well within reach of station1) -- so it's the forced entry
+    # regardless of price, and the trip still needs a real fill-up there
+    # even though it fits in one tank, since the tank starts empty.
+    candidates = [_station(1, 400, price=3.00), _station(2, 550, price=2.80)]
+
+    result = _plan(600.0, candidates)
 
     assert len(result.fuel_stops) == 2
     first, second = result.fuel_stops
@@ -164,8 +231,8 @@ def test_fill_full_when_nothing_cheaper_in_range():
 
 
 def test_detour_penalty_flips_choice_between_two_stations():
-    # A cheap "starter" station right near the origin -- unambiguously the
-    # nearest, so it's the forced first fill regardless of price elsewhere.
+    # A cheap "starter" station -- the entry point since it's the cheapest
+    # of the three by effective cost (not merely because it's nearest).
     starter = _station(3, 50, price=2.00, name="Starter")
     # Cheaper sticker price but a huge detour (80mi one-way): even amortized
     # over a full 50gal tank, that's 160 of the 500 tank-range miles going
@@ -176,7 +243,7 @@ def test_detour_penalty_flips_choice_between_two_stations():
 
     result = _plan(700.0, [starter, cheap_but_far, pricier_but_close])
 
-    assert result.fuel_stops[0].station_id == 3  # starter: nearest to the origin
+    assert result.fuel_stops[0].station_id == 3  # starter: cheapest reachable from the origin
 
     # Nothing beats the starter's $2.00 by effective cost, so it fills the
     # tank completely and drives to whichever reachable station is cheapest
@@ -194,19 +261,23 @@ def test_small_detour_with_big_price_gap_is_worth_a_partial_buy():
     # The motivating regression case: a detour so small relative to the
     # sticker-price gap that it's clearly worth bridging to, even once the
     # naive (unamortized) formula would have said otherwise. Mirrors a real
-    # observed case: $3.40/gal at mile 4 (10mi detour) vs $3.08/gal at mile
-    # 61 (1.2mi detour) -- the 1.2mi detour barely matters amortized over a
+    # observed case: $3.40/gal (10mi detour) vs $3.08/gal 57mi further on
+    # (1.2mi detour) -- the 1.2mi detour barely matters amortized over a
     # full tank, so pump2 should win and only a partial buy happens at pump1.
-    pump1 = _station(1, 4, price=3.40, detour_miles=10.0, name="Pump 1")
-    pump2 = _station(2, 61, price=3.08, detour_miles=1.2, name="Pump 2")
+    # Pump1 sits near the tank-range boundary from the origin so it's the
+    # sole entry point (pump2 is just past the boundary from mile 0, but
+    # well within reach of pump1) -- this test is about the *mid-route*
+    # bridge decision, not the entry choice covered elsewhere.
+    pump1 = _station(1, 450, price=3.40, detour_miles=10.0, name="Pump 1")
+    pump2 = _station(2, 507, price=3.08, detour_miles=1.2, name="Pump 2")
 
-    result = _plan(400.0, [pump1, pump2])
+    result = _plan(846.0, [pump1, pump2])
 
     assert len(result.fuel_stops) == 2
     first, second = result.fuel_stops
 
     assert first.station_id == 1
-    # Bridge to pump2: (61-4) + 2*1.2 = 59.4mi = 5.94gal -- NOT a full tank.
+    # Bridge to pump2: (507-450) + 2*1.2 = 59.4mi = 5.94gal -- NOT a full tank.
     assert first.gallons == pytest.approx(5.94)
     assert first.cost == pytest.approx(5.94 * 3.40)
 
@@ -312,11 +383,15 @@ def test_without_min_purchase_gallons_the_tiny_bridge_is_taken():
     # Baseline (no minimum): the optimizer takes every marginally cheaper
     # station it finds, however little fuel that means buying at the one
     # before it -- the exact behavior min_purchase_gallons exists to curb.
-    station_a = _station(1, 4, price=3.40, name="A")
-    station_b = _station(2, 6, price=3.35, name="B")  # 2mi away: 0.2gal bridge
-    station_c = _station(3, 150, price=3.00, name="C")
+    # A sits near the tank-range boundary from the origin so it's the sole
+    # entry point (B and C are both just past the boundary from mile 0, but
+    # well within reach of A) -- isolates this from the entry-choice logic
+    # covered elsewhere.
+    station_a = _station(1, 499, price=3.40, name="A")
+    station_b = _station(2, 501, price=3.35, name="B")  # 2mi away: 0.2gal bridge
+    station_c = _station(3, 645, price=3.00, name="C")
 
-    result = _plan(150.0, [station_a, station_b, station_c])
+    result = _plan(645.0, [station_a, station_b, station_c])
 
     assert len(result.fuel_stops) == 2
     assert result.fuel_stops[0].station_id == 1
@@ -329,11 +404,11 @@ def test_min_purchase_gallons_skips_a_station_too_close_to_be_worth_stopping():
     # Same layout, but with a 10gal minimum: bridging to B would only need
     # 0.2gal, so B is skipped entirely in favor of C (146mi away, 14.6gal --
     # a real fill), bought directly from A.
-    station_a = _station(1, 4, price=3.40, name="A")
-    station_b = _station(2, 6, price=3.35, name="B")
-    station_c = _station(3, 150, price=3.00, name="C")
+    station_a = _station(1, 499, price=3.40, name="A")
+    station_b = _station(2, 501, price=3.35, name="B")
+    station_c = _station(3, 645, price=3.00, name="C")
 
-    result = _plan(150.0, [station_a, station_b, station_c], min_purchase_gallons=10.0)
+    result = _plan(645.0, [station_a, station_b, station_c], min_purchase_gallons=10.0)
 
     assert len(result.fuel_stops) == 1
     stop = result.fuel_stops[0]
@@ -346,21 +421,25 @@ def test_min_purchase_gallons_never_skips_a_free_coast_to_a_cheaper_station():
     # If there's already enough fuel in the tank to coast to a cheaper
     # station for free, that's not "a stop" being made too small -- no
     # purchase happens there at all, so the minimum never blocks the switch.
-    station_a = _station(1, 100, price=3.50, name="A")  # start: fills a full tank
-    station_x = _station(2, 160, price=3.55, name="X")  # 60mi away: the fill-full target
-    station_y = _station(3, 170, price=3.40, name="Y")  # 10mi past X, cheaper, reached for free
+    # A sits near the tank-range boundary from the origin so it's the sole
+    # entry point (X and Y are both just past the boundary from mile 0, but
+    # well within reach of A).
+    station_a = _station(1, 450, price=3.50, name="A")  # start: fills a full tank
+    station_x = _station(2, 510, price=3.55, name="X")  # pricier than A: never visited at all
+    station_y = _station(3, 520, price=3.40, name="Y")  # cheaper: the actual fill-full target
 
-    result = _plan(650.0, [station_a, station_x, station_y], min_purchase_gallons=10.0)
+    result = _plan(1000.0, [station_a, station_x, station_y], min_purchase_gallons=10.0)
 
-    # X is passed through with a full tank's worth of leftover fuel -- no
-    # purchase happens there, so it never appears as a stop.
+    # X is never visited -- the fill-full branch targets whichever reachable
+    # station is cheapest by effective cost (Y), not the nearest one (X), so
+    # the tank jumps straight from A to Y in one hop.
     assert [stop.station_id for stop in result.fuel_stops] == [1, 3]
 
     assert result.fuel_stops[0].gallons == pytest.approx(TANK_RANGE_MILES / MPG)
     assert result.fuel_stops[0].cost == pytest.approx((TANK_RANGE_MILES / MPG) * 3.50)
 
     # Finishes the trip from Y, at Y's (cheaper) price -- proving the free
-    # coast from X to Y actually happened.
+    # coast from A's full tank to Y covered the 70mi gap with room to spare.
     assert result.fuel_stops[1].gallons == pytest.approx(5.0)
     assert result.fuel_stops[1].price_per_gallon == pytest.approx(3.40)
 

@@ -2,7 +2,9 @@
 
 Given a start and finish location in the US, this returns the driving route, the cost-optimal
 set of fuel stops for a 500-mile tank range at 10 mpg, and the total fuel cost — computed from a
-real dataset of 6,738 truck stops.
+real dataset of 6,738 truck stops. The route planner also offers a **Download JSON** button that
+exports the full leg-by-leg trail — including stations the truck passes but doesn't buy from — for
+offline auditing.
 
 **Live demo: https://trucker-319172055462.us-east4.run.app**
 
@@ -19,6 +21,9 @@ real dataset of 6,738 truck stops.
 
 - [How it works](#how-it-works)
 - [The optimizer, and why it's optimal](#the-optimizer-and-why-its-optimal)
+  - [Choosing the first stop](#choosing-the-first-stop)
+  - [Not hopping stop-to-stop for a splash of fuel](#not-hopping-stop-to-stop-for-a-splash-of-fuel)
+  - [Auditing every stop: pass-throughs and the tank ledger](#auditing-every-stop-pass-throughs-and-the-tank-ledger)
 - [Data pipeline](#data-pipeline)
 - [Running it yourself](#running-it-yourself)
 - [API](#api)
@@ -157,15 +162,57 @@ Three refinements on top of the textbook version:
 2. **The destination is a free, always-available target.** Once it's reachable on the current
    tank, the optimizer buys only the exact remainder needed and stops — it never tops off fuel
    that will never be used.
-3. **The tank starts empty, not full.** There's no fuel price defined at the origin itself, so
-   the truck can't price-shop before its first fill — it fuels up at the station nearest the
-   origin (whatever that costs), a real, charged stop, and applies the same cheaper-ahead-or-
-   fill-full rule from there on. Every trip with positive distance buys real fuel and gets at
-   least one stop; only a zero-distance trip (start == finish) needs none.
+3. **The tank starts empty, not full — and the first stop is the cheapest nearby option, not
+   simply the nearest one.** There's no fuel price defined at the origin itself, so the truck
+   can't price-shop against a real baseline — see [Choosing the first
+   stop](#choosing-the-first-stop) below for the full reasoning and a worked example. Every trip
+   with positive distance buys real fuel and gets at least one stop; only a zero-distance trip
+   (start == finish) needs none.
 
-If the nearest station to the origin is itself beyond one tank's reach, or if any stretch of the
-route exceeds the tank range with no station in reach on either side, the API returns `422` with
-the exact position and shortfall, rather than silently failing.
+If nothing is reachable within one tank of the origin at all, or if any stretch of the route
+exceeds the tank range with no station in reach on either side, the API returns `422` with the
+exact position and shortfall, rather than silently failing.
+
+### Choosing the first stop
+
+The tank is empty at the origin, so the very first purchase can't be judged against a real
+"current price" the way every later stop can. Naively, that suggests just fueling up at whichever
+station happens to be *nearest* — but that's wrong. The origin-to-entry leg is unpriced for
+**every** station within reach, not just the closest one, so a nearer-but-pricier station is never
+worth visiting when a cheaper one is *also* reachable directly from the origin: entering there
+instead has the same downstream effect at a strictly lower cost, since the "free" leg covers
+either distance equally.
+
+```mermaid
+flowchart TD
+    Origin(["Trip origin<br/>(tank empty — no price to shop against)"]) --> Radius{"Any station reachable within<br/>START_SEARCH_RADIUS_MILES<br/>(default 15 mi) of the origin?"}
+    Radius -- yes --> PickNear["Entry = cheapest of those,<br/>by effective cost — not the nearest one"]
+    Radius -- no --> Tank{"Any station reachable<br/>within one full tank<br/>of the origin?"}
+    Tank -- yes --> PickFar["Entry = cheapest reachable<br/>station within one tank"]
+    Tank -- no --> Err(["422 — NoReachableStationError"])
+    PickNear --> Loop(["Standard cheaper-ahead-or-fill-full<br/>loop takes over from here"])
+    PickFar --> Loop
+```
+
+`START_SEARCH_RADIUS_MILES` (default `15`, configurable) keeps this realistic: a driver starting a
+trip checks nearby stations, not every station up to a full tank away. If nothing qualifies that
+close (a sparse area), the search falls back to the full tank range rather than stranding the
+truck — the same "cheapest reachable, not nearest" rule, just over a wider net.
+
+**Worked example** — two stations near the origin, tank range 150 mi:
+
+| Station | Distance from origin | Price |
+|---|---|---|
+| A | 8 mi | $5.10/gal |
+| B | 35 mi | $3.40/gal |
+
+Naively fueling at A (the nearest) and bridging the 27 mi to B costs `2.7 gal × $5.10 = $13.77`
+for fuel that's immediately replaced at B's cheaper price — pure waste. Since B is well within
+`START_SEARCH_RADIUS_MILES`, the optimizer enters directly at B instead, skipping A entirely: one
+stop, no wasted purchase. If B were *outside* the 15-mile radius (but still within one tank), A
+would be the forced entry point instead, and the standard cheaper-ahead rule bridges from A to B
+exactly as normal — the radius only changes which stations are *candidates* for the very first
+decision, not the logic once a real entry point is chosen.
 
 ### Not hopping stop-to-stop for a splash of fuel
 
@@ -188,6 +235,50 @@ driving to the cheapest reachable station, arriving there with plenty of leftove
 50-gallon fill only 20 miles back) no longer forces a top-off purchase — it's a free pass-through,
 just like a cheaper-ahead free coast, and the station won't appear as a stop at all unless fuel is
 actually needed there.
+
+### Auditing every stop: pass-throughs and the tank ledger
+
+`fuel_stops` — the array rendered as map markers and the stop list — only ever contains real,
+paid purchases. That's the right thing to *show*, but it's a misleading thing to *audit*: a station
+skipped for costing $0 there is invisible in that list, so computing "does this leg's fuel cover
+the next one" from `fuel_stops` alone silently drops legs and produces a false shortfall. A real
+regression case: filling to a full 50-gallon tank, then coasting through **six** cheaper-than-
+nothing-else-available stations in a row before the next real purchase —
+
+```mermaid
+flowchart LR
+    A["AKAL TRAVEL CENTER<br/>fills to 50.00 gal"] --> B["Henderson Fuel Mart<br/>pass-through, 0 gal<br/>(47.65 gal still on board)"]
+    B --> C["AM Energy<br/>pass-through, 0 gal"]
+    C --> D["4 more pass-throughs…"]
+    D --> E["PWI #502<br/>real stop — buys 47.93 gal<br/>(arrived with only 2.07 gal left)"]
+```
+
+— none of which show up in `fuel_stops`, even though the truck genuinely drove through (and
+detoured off-corridor for) every one of them while evaluating whether to buy.
+
+Two things fix this:
+
+- **`all_stops`** is every station the route actually touches, in visiting order — `fuel_stops`
+  plus the zero-purchase pass-throughs it omits, each tagged `"pass_through": true/false`.
+- **`tank_gallons_arriving`** / **`tank_gallons_departing`** on every entry expose the optimizer's
+  own internal fuel level directly, so `arriving + gallons bought = departing` is verifiable from
+  the response itself — no need to re-derive it by hand or re-run the optimizer with debug output.
+
+|  | leg miles | arriving | + bought | = departing | cap |
+|---|---|---|---|---|---|
+| ⛽ AKAL TRAVEL CENTER | 88.6 | 0.00 | 50.00 | **50.00** | 50.00 |
+| ⋯ (6 pass-throughs) | 394.7 | 50.00 | 0.00 | 7.21 | 50.00 |
+| ⛽ PWI #502 | 48.8 | 2.07 | 47.93 | **50.00** | 50.00 |
+| ⛽ MAVERIK (Green River) | 298.6 | 19.86 | 30.14 | **50.00** | 50.00 |
+| ⛽ Maverik #674 (Las Vegas) | 374.3 | 12.44 | 28.75 | **41.20** | 50.00 |
+
+Every row balances and nothing exceeds the 50-gallon cap — by construction, since the fill-full
+branch always computes `gallons_to_buy = tank_capacity - gallons_in_tank`, which can't overshoot.
+
+The **Download JSON** button in the route planner UI exports exactly this: `fuel_stops`,
+`all_stops`, and a derived `legs` array (`from` → `to`, miles, price, gallons, cost,
+`pass_through`, and the same arriving/departing tank levels) — a complete, self-auditing
+leg-by-leg trail for the whole trip.
 
 ---
 
@@ -261,27 +352,33 @@ curl -X POST https://trucker-319172055462.us-east4.run.app/api/route/ \
 
 `start` / `finish` each accept either `"City, ST"` or a raw `"lat,lng"` coordinate pair (the
 latter skips geocoding entirely). The tank starts empty, so even a trip that fits under the tank
-range buys real fuel at the nearest station and returns a real stop:
+range buys real fuel at the cheapest nearby station (see [Choosing the first
+stop](#choosing-the-first-stop)) and returns a real stop. Every stop also carries a `pass_through`
+flag and the tank level immediately before/after it:
 
 ```json
 {
   "total_distance_miles": 78.1,
-  "total_fuel_cost": 24.09,
+  "total_fuel_cost": 26.27,
   "fuel_stops": [
     {
-      "name": "PILOT #212",
-      "address": "I-94 Exit 306",
+      "name": "SPEEDWAY #4214",
+      "address": "I-45, EXIT 46 & US-100",
       "city": "Milwaukee",
       "state": "WI",
-      "price_per_gallon": 3.085,
+      "price_per_gallon": 3.366,
       "gallons": 7.81,
-      "cost": 24.09,
-      "miles_from_start": 3.4,
-      "detour_miles": 0.3,
-      "latitude": 43.061,
-      "longitude": -87.921
+      "cost": 26.27,
+      "miles_from_start": 0.0,
+      "detour_miles": 0.1,
+      "latitude": 43.0389,
+      "longitude": -87.9065,
+      "pass_through": false,
+      "tank_gallons_arriving": 0.0,
+      "tank_gallons_departing": 7.81
     }
   ],
+  "all_stops": [ /* same shape as fuel_stops, but includes zero-purchase pass-throughs too */ ],
   "route": { "type": "LineString", "coordinates": [[-87.909, 43.039], ...] },
   "price_version": 1,
   "cached": false,
@@ -289,27 +386,33 @@ range buys real fuel at the nearest station and returns a real stop:
 }
 ```
 
-A longer trip returns multiple stops:
+A longer trip returns multiple stops, and `all_stops` grows to include any pass-through waypoints
+(see [Auditing every stop](#auditing-every-stop-pass-throughs-and-the-tank-ledger)):
 
 ```json
 {
-  "total_distance_miles": 2798.2,
-  "total_fuel_cost": 755.30,
+  "total_distance_miles": 2794.0,
+  "total_fuel_cost": 884.88,
   "fuel_stops": [
     {
-      "name": "ACI TRUCK STOP",
-      "address": "US-46",
-      "city": "Columbia",
+      "name": "DELTA",
+      "address": "US-9",
+      "city": "Jersey City",
       "state": "NJ",
-      "price_per_gallon": 3.079,
-      "gallons": 6.31,
-      "cost": 19.43,
-      "miles_from_start": 60.8,
-      "detour_miles": 1.2,
-      "latitude": 40.9388,
-      "longitude": -75.055
+      "price_per_gallon": 3.239,
+      "gallons": 37.21,
+      "cost": 120.53,
+      "miles_from_start": 4.0,
+      "detour_miles": 0.2,
+      "latitude": 40.7328,
+      "longitude": -74.0755,
+      "pass_through": false,
+      "tank_gallons_arriving": 0.0,
+      "tank_gallons_departing": 37.21
     }
+    /* ...more stops... */
   ],
+  "all_stops": [ /* ...fuel_stops, interleaved with any pass-through waypoints... */ ],
   "route": { "type": "LineString", "coordinates": [ /* ... */ ] },
   "price_version": 1,
   "cached": false,
@@ -320,6 +423,15 @@ A longer trip returns multiple stops:
 Repeating the exact same request returns `"cached": true` with `compute_ms` near zero — responses
 are cached with the current `price_version` baked into the cache key, so a price reload
 invalidates every cached route automatically without an explicit purge.
+
+### Exporting a route
+
+The route planner's **Download JSON** button (next to the "Fuel stops" heading, once a route is
+planned) builds a self-contained file client-side from the API response: `start`/`finish`,
+totals, `fuel_stops`, `all_stops`, and a derived `legs` array — one entry per `from → to` hop
+(including the final leg into the destination), each carrying `leg_miles`, `price_per_gallon`,
+`gallons`, `fuel_cost`, `pass_through`, and the arriving/departing tank levels. No extra API call
+is made; it's the same response already rendered on the map, reshaped for offline review.
 
 ### `GET /api/places/?q=...`
 
@@ -370,9 +482,11 @@ curl "https://trucker-319172055462.us-east4.run.app/api/places/?q=ne"
   Canadian provinces (border-adjacent truck stops); these are geocoded via province centroid
   fallback rather than dropped.
 - **Tank starts empty** at the trip origin. There's no fuel price defined at the origin itself, so
-  the truck fuels up at the station nearest the origin (a real, charged stop) before applying the
-  same cheaper-ahead-or-fill-full rule as every other stop. If that nearest station is itself
-  beyond one tank's reach, the API returns `422`.
+  the truck fuels up at the *cheapest* station (by effective cost) within `START_SEARCH_RADIUS_MILES`
+  of the origin — not simply the nearest one — falling back to the cheapest station within a full
+  tank if nothing qualifies that close (see [Choosing the first stop](#choosing-the-first-stop)),
+  before applying the same cheaper-ahead-or-fill-full rule as every other stop. If nothing is
+  reachable within one tank of the origin at all, the API returns `422`.
 - **10 mpg and a 500-mile range are fixed constants** (configurable via `MPG` /
   `TANK_RANGE_MILES` env vars), not derived from vehicle data — there's no vehicle model in this
   system.
@@ -390,6 +504,9 @@ curl "https://trucker-319172055462.us-east4.run.app/api/places/?q=ne"
   `MIN_PURCHASE_GALLONS`; stations don't count as "cheaper ahead" unless bridging to them means
   buying at least this much fuel, so the optimizer doesn't hop between stations minutes apart to
   save a few cents (see "Not hopping stop-to-stop for a splash of fuel" above).
+- **15-mile start-search radius is a default, not a hard limit** — configurable via
+  `START_SEARCH_RADIUS_MILES`; bounds how far the truck is willing to shop around for its very
+  first fill before falling back to a full tank's reach if nothing qualifies that close.
 
 ---
 
@@ -407,8 +524,8 @@ deployed on Google Cloud Run.
 pytest
 ```
 
-88 tests across dedupe/upsert idempotency, corridor matching, the optimizer (empty-tank start,
-cheaper-ahead partial buy, fill-full, unreachable-gap failure, blended-average detour-cost
-ranking, minimum-purchase filtering), dashboard/analytics aggregation, station-directory
-filtering, and offline place search — all against synthetic data, no network calls, runs in about
-a second.
+91 tests across dedupe/upsert idempotency, corridor matching, the optimizer (cheapest-reachable
+entry-point selection and its start-search-radius fallback, cheaper-ahead partial buy, fill-full,
+unreachable-gap failure, blended-average detour-cost ranking, minimum-purchase filtering),
+dashboard/analytics aggregation, station-directory filtering, and offline place search — all
+against synthetic data, no network calls, runs in about a second.

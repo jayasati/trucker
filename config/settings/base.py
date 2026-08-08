@@ -101,6 +101,7 @@ CACHES = {
 # --- Fuel Route Optimizer domain settings -----------------------------------
 TANK_RANGE_MILES = env.float("TANK_RANGE_MILES", default=500.0)
 MPG = env.float("MPG", default=10.0)
+START_SEARCH_RADIUS_MILES = env.float("START_SEARCH_RADIUS_MILES", default=15.0)
 DETOUR_RADIUS_MILES = env.float("DETOUR_RADIUS_MILES", default=10.0)
 MIN_PURCHASE_GALLONS = env.float("MIN_PURCHASE_GALLONS", default=10.0)
 OSRM_BASE_URL = env("OSRM_BASE_URL", default="https://router.project-osrm.org")

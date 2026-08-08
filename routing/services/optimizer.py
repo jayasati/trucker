@@ -27,10 +27,15 @@ Three refinements on top of the textbook version:
      exact remainder needed and stop — never top off fuel that will never be
      used.
   3. The tank starts *empty*, not full. There's no fuel price defined at the
-     origin itself, so the truck can't price-shop before its first fill: it
-     fuels up at the nearest station to the origin (whatever that costs),
-     then applies the same cheaper-ahead-or-fill-full rule from there onward.
-     That first purchase is a real, charged stop — not a free starting tank.
+     origin itself, so the truck can't price-shop against a real baseline —
+     but the origin-to-entry leg is unpriced for every station within one
+     tank of the origin, not just the closest one, so that whole set is a
+     valid, free entry point. The first fill is therefore the *cheapest*
+     (by effective cost) reachable station, not the nearest — picking a
+     nearer-but-pricier one would force a real, avoidable purchase just to
+     bridge the gap to the cheaper one just past it. From there the same
+     cheaper-ahead-or-fill-full rule applies as everywhere else. That first
+     purchase is a real, charged stop — not a free starting tank.
 """
 
 from __future__ import annotations
@@ -85,6 +90,9 @@ class FuelStop:
     detour_miles: float
     latitude: float
     longitude: float
+    pass_through: bool = False  # visited but not fueled at (see OptimizerResult.all_stops)
+    tank_gallons_arriving: float = 0.0  # fuel still in the tank on arrival, before this stop's purchase
+    tank_gallons_departing: float = 0.0  # fuel in the tank leaving this stop, i.e. arriving + gallons
 
 
 @dataclass(frozen=True)
@@ -92,6 +100,13 @@ class OptimizerResult:
     total_distance_miles: float
     total_fuel_cost: float
     fuel_stops: list[FuelStop]
+    all_stops: list[FuelStop]
+    """Every station the route actually touches, in visiting order —
+    fuel_stops plus the zero-purchase pass-throughs it omits (stations
+    reached with fuel already in the tank, where the greedy correctly
+    buys nothing). Useful for an auditable leg-by-leg trail; fuel_stops
+    alone is what's rendered as map markers / the stop list, since a
+    pass-through isn't a stop a driver would notice making."""
 
 
 def effective_cost(price: float, detour_miles: float, tank_range_miles: float, outbound_reference_price: float) -> float:
@@ -132,7 +147,13 @@ def effective_cost(price: float, detour_miles: float, tank_range_miles: float, o
     return price + detour_fraction * (outbound_reference_price + price)
 
 
-def _to_stop(station: StationCandidate, gallons: float, cost: float) -> FuelStop:
+def _to_stop(
+    station: StationCandidate,
+    gallons: float,
+    cost: float,
+    tank_gallons_arriving: float,
+    tank_gallons_departing: float,
+) -> FuelStop:
     return FuelStop(
         station_id=station.station_id,
         name=station.name,
@@ -146,6 +167,9 @@ def _to_stop(station: StationCandidate, gallons: float, cost: float) -> FuelStop
         detour_miles=station.detour_miles,
         latitude=station.latitude,
         longitude=station.longitude,
+        pass_through=cost <= 0.0,
+        tank_gallons_arriving=tank_gallons_arriving,
+        tank_gallons_departing=tank_gallons_departing,
     )
 
 
@@ -156,16 +180,25 @@ def plan_fuel_stops(
     tank_range_miles: float,
     mpg: float,
     min_purchase_gallons: float = 0.0,
+    start_search_radius_miles: float | None = None,
 ) -> OptimizerResult:
     """Compute the cheapest sequence of fuel stops covering the trip.
 
     `candidates` are stations already matched to the route corridor (see
     corridor.py), each with a mile-marker and a one-way detour distance. The
-    tank starts empty: the first fuel purchase happens at the station nearest
-    the origin (that's reachable at all — see NoReachableStationError below),
-    and every purchase after that follows the cheaper-ahead-or-fill-full rule,
-    ranking detour stations by the blended-average-cost model in
-    effective_cost() above.
+    tank starts empty: the first fuel purchase happens at the cheapest
+    (by effective cost) station reachable from the origin at all — see
+    NoReachableStationError below for when none is — and every purchase
+    after that follows the cheaper-ahead-or-fill-full rule, ranking detour
+    stations by the blended-average-cost model in effective_cost() above.
+
+    `start_search_radius_miles` bounds how far the truck is willing to
+    shop around for that first fill: a real driver starting a trip checks
+    nearby stations, not every station up to a full tank away. Defaults to
+    `tank_range_miles` (no extra restriction) when omitted. If nothing
+    qualifies within the radius, the search falls back to the full
+    `tank_range_miles` — a short local search shouldn't strand the truck
+    somewhere with no nearby pump at all.
 
     `min_purchase_gallons` filters out stops that are technically cheaper but
     not realistically worth pulling off for: a station only counts as
@@ -181,19 +214,36 @@ def plan_fuel_stops(
     at the current station instead.
     """
     if total_distance_miles <= DISTANCE_EPSILON:
-        return OptimizerResult(total_distance_miles=total_distance_miles, total_fuel_cost=0.0, fuel_stops=[])
+        return OptimizerResult(total_distance_miles=total_distance_miles, total_fuel_cost=0.0, fuel_stops=[], all_stops=[])
 
     sorted_candidates = sorted(candidates, key=lambda c: c.miles_from_start)
 
-    start_reachable = [c for c in sorted_candidates if c.miles_from_start + 2 * c.detour_miles <= tank_range_miles + DISTANCE_EPSILON]
+    def _within(radius: float) -> list[StationCandidate]:
+        return [c for c in sorted_candidates if c.miles_from_start + 2 * c.detour_miles <= radius + DISTANCE_EPSILON]
+
+    radius = tank_range_miles if start_search_radius_miles is None else start_search_radius_miles
+    start_reachable = _within(radius)
+    if not start_reachable and radius < tank_range_miles:
+        start_reachable = _within(tank_range_miles)  # nothing nearby -- fall back to a full tank's reach
     if not start_reachable:
         raise NoReachableStationError(0.0, total_distance_miles, tank_range_miles)
-    current_station: StationCandidate = start_reachable[0]  # nearest to the origin
+    # The origin-to-entry leg is unpriced (see module docstring, point 3) for
+    # every station in start_reachable, not just the nearest one -- so the
+    # entry point is chosen the same way every other stop is: by effective
+    # cost, not proximity. Picking a nearer-but-pricier station over a
+    # cheaper one just past it would force a real, avoidable purchase at the
+    # worse price to bridge the gap. outbound_reference_price uses the
+    # candidate's own price, same convention as elsewhere for an empty tank.
+    current_station: StationCandidate = min(
+        start_reachable,
+        key=lambda c: effective_cost(c.price, c.detour_miles, tank_range_miles, c.price),
+    )
 
     position = current_station.miles_from_start
     gallons_in_tank = 0.0
     avg_cost_in_tank = 0.0  # meaningless while gallons_in_tank == 0; never read in that case
     stops: list[FuelStop] = []
+    all_stops: list[FuelStop] = []
     total_cost = 0.0
     tank_capacity_gallons = tank_range_miles / mpg
 
@@ -207,6 +257,12 @@ def plan_fuel_stops(
         avg_cost_in_tank = (gallons_in_tank * avg_cost_in_tank + gallons * price) / new_total
         gallons_in_tank = new_total
         return cost
+
+    def record(gallons: float, cost: float, tank_gallons_arriving: float) -> None:
+        stop = _to_stop(current_station, gallons, cost, tank_gallons_arriving, gallons_in_tank)
+        all_stops.append(stop)
+        if cost:
+            stops.append(stop)
 
     while True:
         remaining_trip = total_distance_miles - position
@@ -249,9 +305,9 @@ def plan_fuel_stops(
                 break
 
         if target is not None:
+            tank_gallons_arriving = gallons_in_tank
             cost = buy(target_gallons_to_buy, current_price)
-            if cost:
-                stops.append(_to_stop(current_station, target_gallons_to_buy, cost))
+            record(target_gallons_to_buy, cost, tank_gallons_arriving)
 
             gallons_in_tank -= target_gallons_needed
             position = target.miles_from_start
@@ -261,9 +317,9 @@ def plan_fuel_stops(
             gallons_needed = remaining_trip / mpg
             gallons_to_buy = max(0.0, gallons_needed - gallons_in_tank)
 
+            tank_gallons_arriving = gallons_in_tank
             cost = buy(gallons_to_buy, current_price)
-            if cost:
-                stops.append(_to_stop(current_station, gallons_to_buy, cost))
+            record(gallons_to_buy, cost, tank_gallons_arriving)
 
             gallons_in_tank -= gallons_needed
             position = total_distance_miles
@@ -283,12 +339,17 @@ def plan_fuel_stops(
             else:
                 gallons_to_buy = max(0.0, tank_capacity_gallons - gallons_in_tank)
 
+            tank_gallons_arriving = gallons_in_tank
             cost = buy(gallons_to_buy, current_price)
-            if cost:
-                stops.append(_to_stop(current_station, gallons_to_buy, cost))
+            record(gallons_to_buy, cost, tank_gallons_arriving)
 
             gallons_in_tank -= gallons_needed_for_target
             position = target.miles_from_start
             current_station = target
 
-    return OptimizerResult(total_distance_miles=total_distance_miles, total_fuel_cost=total_cost, fuel_stops=stops)
+    return OptimizerResult(
+        total_distance_miles=total_distance_miles,
+        total_fuel_cost=total_cost,
+        fuel_stops=stops,
+        all_stops=all_stops,
+    )

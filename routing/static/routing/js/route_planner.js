@@ -15,11 +15,12 @@
    "stateIdle", "stateLoading", "stateError", "stateResult",
    "errTitle", "errBody", "errWhy", "errIconWrap",
    "sumDistance", "sumCost", "sumStops", "sumAvg", "listMeta", "stopList",
-   "mapOverlay", "mapBadge", "badgeRoute", "badgeStats", "legend"
+   "mapOverlay", "mapBadge", "badgeRoute", "badgeStats", "legend",
+   "downloadJsonBtn"
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   var map, routeLine, routeOutline, stopMarkers = [], originMarker, destMarker;
-  var selectedIndex = null, currentStops = [];
+  var selectedIndex = null, currentStops = [], currentRouteData = null;
 
   function escapeHtml(s) {
     var div = document.createElement("div");
@@ -312,6 +313,71 @@
     el.legend.classList.add("hidden");
   }
 
+  function slugify(s) {
+    return String(s).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "stop";
+  }
+
+  function downloadCurrentRoute() {
+    if (!currentRouteData) { return; }
+    var data = currentRouteData;
+    // all_stops includes zero-purchase "pass-through" waypoints the truck
+    // coasts past on fuel already in the tank -- fuel_stops alone (real
+    // purchases only) would leave gaps in the leg-by-leg mileage trail.
+    var waypoints = data.all_stops || data.fuel_stops;
+    var legs = [];
+    var prevLabel = data.start_label, prevMiles = 0;
+    waypoints.forEach(function (s) {
+      var here = s.name + ", " + s.city + ", " + s.state;
+      legs.push({
+        from: prevLabel,
+        to: here,
+        leg_miles: Math.round((s.miles_from_start - prevMiles) * 10) / 10,
+        price_per_gallon: s.price_per_gallon,
+        gallons: s.gallons,
+        fuel_cost: s.cost,
+        pass_through: !!s.pass_through,
+        tank_gallons_arriving: s.tank_gallons_arriving,
+        tank_gallons_departing: s.tank_gallons_departing
+      });
+      prevLabel = here;
+      prevMiles = s.miles_from_start;
+    });
+    var mpg = Number(document.getElementById("app").dataset.mpg) || 10;
+    var lastTank = waypoints.length ? waypoints[waypoints.length - 1].tank_gallons_departing : 0;
+    var finalLegMiles = data.total_distance_miles - prevMiles;
+    legs.push({
+      from: prevLabel,
+      to: data.finish_label,
+      leg_miles: Math.round(finalLegMiles * 10) / 10,
+      price_per_gallon: null,
+      gallons: 0,
+      fuel_cost: 0,
+      pass_through: false,
+      tank_gallons_arriving: lastTank,
+      tank_gallons_departing: Math.round((lastTank - finalLegMiles / mpg) * 100) / 100
+    });
+
+    var out = {
+      start: data.start_label,
+      finish: data.finish_label,
+      total_distance_miles: data.total_distance_miles,
+      total_fuel_cost: data.total_fuel_cost,
+      fuel_stops: data.fuel_stops,
+      all_stops: waypoints,
+      legs: legs
+    };
+
+    var blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "route-" + slugify(data.start_label) + "-to-" + slugify(data.finish_label) + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   function planRoute(event) {
     event.preventDefault();
     var start = el.start.value.trim();
@@ -337,7 +403,10 @@
           return;
         }
         var data = result.body;
+        data.start_label = start;
+        data.finish_label = finish;
         currentStops = data.fuel_stops;
+        currentRouteData = data;
         renderSummary(data, start, finish);
         renderMap(data, start, finish);
         renderList();
@@ -349,6 +418,7 @@
   }
 
   el.planForm.addEventListener("submit", planRoute);
+  el.downloadJsonBtn.addEventListener("click", downloadCurrentRoute);
   setupAutocomplete(el.start, el.startSuggest);
   setupAutocomplete(el.finish, el.finishSuggest);
 
